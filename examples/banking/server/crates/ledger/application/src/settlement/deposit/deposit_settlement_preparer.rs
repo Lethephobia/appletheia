@@ -1,11 +1,12 @@
 use super::{
-    DepositSettlementPreparation, DepositSettlementPrepareRequest, DepositSettlementPreparerError,
+    DepositSettlementPreparation, DepositSettlementPreparationRequest,
+    DepositSettlementPreparerError,
 };
 
 #[allow(async_fn_in_trait)]
 pub trait DepositSettlementPreparer: Send + Sync {
     async fn prepare(
         &self,
-        request: DepositSettlementPrepareRequest,
+        request: DepositSettlementPreparationRequest,
     ) -> Result<DepositSettlementPreparation, DepositSettlementPreparerError>;
 }

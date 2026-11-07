@@ -5,7 +5,7 @@ use banking_ledger_domain::core::{
 use banking_ledger_domain::deposit::DepositId;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DepositSettlementVerifyRequest {
+pub struct DepositSettlementVerificationRequest {
     pub deposit_id: DepositId,
     pub currency_decimals: CurrencyDecimals,
     pub chain_network: ChainNetwork,

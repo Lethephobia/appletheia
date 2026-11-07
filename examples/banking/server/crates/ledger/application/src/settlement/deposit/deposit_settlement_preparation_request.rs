@@ -6,7 +6,7 @@ use banking_ledger_domain::deposit::DepositId;
 use super::EvmDepositAuthorization;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DepositSettlementPrepareRequest {
+pub struct DepositSettlementPreparationRequest {
     deposit_id: DepositId,
     currency_decimals: CurrencyDecimals,
     chain_network: ChainNetwork,
@@ -16,7 +16,7 @@ pub struct DepositSettlementPrepareRequest {
     evm_authorization: Option<EvmDepositAuthorization>,
 }
 
-impl DepositSettlementPrepareRequest {
+impl DepositSettlementPreparationRequest {
     pub fn new(
         deposit_id: DepositId,
         currency_decimals: CurrencyDecimals,

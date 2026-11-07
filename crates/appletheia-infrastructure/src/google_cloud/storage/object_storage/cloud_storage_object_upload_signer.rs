@@ -1,7 +1,7 @@
 use appletheia_application::{
     ObjectBucketName, ObjectChecksum, ObjectChecksumAlgorithm, ObjectUploadHeader,
     ObjectUploadHeaderName, ObjectUploadHeaderValue, ObjectUploadHeaders, ObjectUploadMethod,
-    ObjectUploadSignRequest, ObjectUploadSigner, ObjectUploadSignerError, SignedObjectUpload,
+    ObjectUploadSigner, ObjectUploadSignerError, ObjectUploadSigningRequest, SignedObjectUpload,
     SignedObjectUploadUrl,
 };
 use google_cloud_auth::signer::Signer;
@@ -32,7 +32,7 @@ impl CloudStorageObjectUploadSigner {
     }
 
     fn headers_for_request(
-        request: &ObjectUploadSignRequest,
+        request: &ObjectUploadSigningRequest,
     ) -> Result<ObjectUploadHeaders, CloudStorageObjectUploadSignerError> {
         let mut headers = vec![ObjectUploadHeader::new(
             ObjectUploadHeaderName::content_type(),
@@ -71,7 +71,7 @@ impl CloudStorageObjectUploadSigner {
 impl ObjectUploadSigner for CloudStorageObjectUploadSigner {
     async fn sign(
         &self,
-        request: ObjectUploadSignRequest,
+        request: ObjectUploadSigningRequest,
     ) -> Result<SignedObjectUpload, ObjectUploadSignerError> {
         let expires_in = request
             .expires_in()

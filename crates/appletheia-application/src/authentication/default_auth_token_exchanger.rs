@@ -1,7 +1,7 @@
 use super::{
     AuthTokenExchangeCodeHasher, AuthTokenExchangeCodeStore, AuthTokenExchangeGrantCipher,
     AuthTokenExchangeRequest, AuthTokenExchangeResult, AuthTokenExchanger, AuthTokenExchangerError,
-    AuthTokenIssueRequest, AuthTokenIssuer,
+    AuthTokenIssuanceRequest, AuthTokenIssuer,
 };
 
 /// Exchanges one-time codes for auth tokens and optional OIDC tokens.
@@ -72,7 +72,7 @@ where
         let grant = self.grant_cipher.decrypt(record.encrypted_grant()).await?;
         let auth_token_issue_result = self
             .auth_token_issuer
-            .issue(AuthTokenIssueRequest::new(grant.subject().clone()))
+            .issue(AuthTokenIssuanceRequest::new(grant.subject().clone()))
             .await?;
 
         Ok(AuthTokenExchangeResult::new(

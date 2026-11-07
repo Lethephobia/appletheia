@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
 use appletheia::application::command::CommandHandler;
 use appletheia::application::object_storage::{
-    ObjectBucketName, ObjectDeleteRequest, ObjectDeleter, ObjectName,
+    ObjectBucketName, ObjectDeleter, ObjectDeletionRequest, ObjectName,
 };
 use appletheia::application::request_context::RequestContext;
 use appletheia::application::unit_of_work::UnitOfWork;
@@ -62,7 +62,7 @@ where
         _request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
-        let request = ObjectDeleteRequest::new(
+        let request = ObjectDeletionRequest::new(
             self.bucket_name.clone(),
             ObjectName::new(command.object_name.value().to_owned())?,
         );

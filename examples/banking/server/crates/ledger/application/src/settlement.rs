@@ -6,18 +6,18 @@ mod withdrawal;
 
 pub use deposit::{
     DefaultDepositSettlementPreparer, DefaultDepositSettlementVerifier,
-    DepositSettlementPreparation, DepositSettlementPrepareRequest, DepositSettlementPreparer,
-    DepositSettlementPreparerError, DepositSettlementVerification, DepositSettlementVerifier,
-    DepositSettlementVerifierError, DepositSettlementVerifyRequest,
-    EthereumDepositSettlementTransactionPreparation,
-    EthereumDepositSettlementTransactionPrepareRequest,
+    DepositSettlementPreparation, DepositSettlementPreparationRequest, DepositSettlementPreparer,
+    DepositSettlementPreparerError, DepositSettlementVerification,
+    DepositSettlementVerificationRequest, DepositSettlementVerifier,
+    DepositSettlementVerifierError, EthereumDepositSettlementTransactionPreparation,
+    EthereumDepositSettlementTransactionPreparationRequest,
     EthereumDepositSettlementTransactionPreparer,
     EthereumDepositSettlementTransactionPreparerError, EthereumDepositSettlementVerification,
-    EthereumDepositSettlementVerifier, EthereumDepositSettlementVerifyRequest,
+    EthereumDepositSettlementVerificationRequest, EthereumDepositSettlementVerifier,
     EvmDepositAuthorization, SolanaDepositSettlementPreparation,
-    SolanaDepositSettlementPrepareRequest, SolanaDepositSettlementPreparer,
-    SolanaDepositSettlementVerification, SolanaDepositSettlementVerifier,
-    SolanaDepositSettlementVerifyRequest, SolanaPreparedDepositTransaction,
+    SolanaDepositSettlementPreparationRequest, SolanaDepositSettlementPreparer,
+    SolanaDepositSettlementVerification, SolanaDepositSettlementVerificationRequest,
+    SolanaDepositSettlementVerifier, SolanaPreparedDepositTransaction,
 };
 pub use evm::{
     Erc2612Permit, Erc2612PermitDeadline, Erc2612PermitSignature, Erc3009ReceiveAuthorization,
@@ -26,7 +26,7 @@ pub use evm::{
     EvmQuantity, EvmTransactionRequest, EvmUserOperation, EvmUserOperationRequest,
 };
 pub use user_operation::{
-    EthereumUserOperationPreparation, EthereumUserOperationPrepareRequest,
+    EthereumUserOperationPreparation, EthereumUserOperationPreparationRequest,
     EthereumUserOperationPreparer, EthereumUserOperationPreparerError,
 };
 pub use validation::{

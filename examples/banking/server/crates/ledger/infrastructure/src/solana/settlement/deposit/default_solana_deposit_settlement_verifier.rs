@@ -2,7 +2,7 @@ use anchor_lang::AccountDeserialize;
 use appletheia::domain::AggregateId;
 use banking_ledger_application::settlement::{
     DepositSettlementVerifierError, SolanaDepositSettlementVerification,
-    SolanaDepositSettlementVerifier, SolanaDepositSettlementVerifyRequest,
+    SolanaDepositSettlementVerificationRequest, SolanaDepositSettlementVerifier,
 };
 use banking_ledger_domain::core::TokenDecimals;
 use banking_settlement::{DepositSettlementReceipt, PoolAuthority};
@@ -32,7 +32,7 @@ impl DefaultSolanaDepositSettlementVerifier {
 impl SolanaDepositSettlementVerifier for DefaultSolanaDepositSettlementVerifier {
     async fn verify(
         &self,
-        request: SolanaDepositSettlementVerifyRequest,
+        request: SolanaDepositSettlementVerificationRequest,
     ) -> Result<SolanaDepositSettlementVerification, DepositSettlementVerifierError> {
         let transaction_id = request.transaction_id();
         let deposit_id = request.deposit_id().value().into_bytes();

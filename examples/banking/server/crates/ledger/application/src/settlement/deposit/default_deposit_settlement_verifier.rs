@@ -3,10 +3,10 @@ use banking_ledger_domain::core::{
 };
 
 use super::{
-    DepositSettlementVerification, DepositSettlementVerifier, DepositSettlementVerifierError,
-    DepositSettlementVerifyRequest, EthereumDepositSettlementVerifier,
-    EthereumDepositSettlementVerifyRequest, SolanaDepositSettlementVerifier,
-    SolanaDepositSettlementVerifyRequest,
+    DepositSettlementVerification, DepositSettlementVerificationRequest, DepositSettlementVerifier,
+    DepositSettlementVerifierError, EthereumDepositSettlementVerificationRequest,
+    EthereumDepositSettlementVerifier, SolanaDepositSettlementVerificationRequest,
+    SolanaDepositSettlementVerifier,
 };
 
 pub struct DefaultDepositSettlementVerifier<S, E>
@@ -35,7 +35,7 @@ where
 {
     async fn verify(
         &self,
-        request: DepositSettlementVerifyRequest,
+        request: DepositSettlementVerificationRequest,
     ) -> Result<DepositSettlementVerification, DepositSettlementVerifierError> {
         let transaction_id = match (
             request.chain_network,
@@ -51,7 +51,7 @@ where
             ) => {
                 let verification = self
                     .solana
-                    .verify(SolanaDepositSettlementVerifyRequest::new(
+                    .verify(SolanaDepositSettlementVerificationRequest::new(
                         request.deposit_id,
                         request.currency_decimals,
                         token_address,
@@ -70,7 +70,7 @@ where
             ) => {
                 let verification = self
                     .ethereum
-                    .verify(EthereumDepositSettlementVerifyRequest::new(
+                    .verify(EthereumDepositSettlementVerificationRequest::new(
                         request.deposit_id,
                         request.currency_decimals,
                         token_address,
@@ -103,10 +103,10 @@ mod tests {
     };
 
     use super::{
-        DefaultDepositSettlementVerifier, DepositSettlementVerifier,
-        DepositSettlementVerifierError, DepositSettlementVerifyRequest,
-        EthereumDepositSettlementVerifier, EthereumDepositSettlementVerifyRequest,
-        SolanaDepositSettlementVerifier, SolanaDepositSettlementVerifyRequest,
+        DefaultDepositSettlementVerifier, DepositSettlementVerificationRequest,
+        DepositSettlementVerifier, DepositSettlementVerifierError,
+        EthereumDepositSettlementVerificationRequest, EthereumDepositSettlementVerifier,
+        SolanaDepositSettlementVerificationRequest, SolanaDepositSettlementVerifier,
     };
 
     struct StubSolanaDepositSettlementVerifier;
@@ -114,7 +114,7 @@ mod tests {
     impl SolanaDepositSettlementVerifier for StubSolanaDepositSettlementVerifier {
         async fn verify(
             &self,
-            _request: SolanaDepositSettlementVerifyRequest,
+            _request: SolanaDepositSettlementVerificationRequest,
         ) -> Result<SolanaDepositSettlementVerification, DepositSettlementVerifierError> {
             Ok(SolanaDepositSettlementVerification {
                 transaction_id: SolanaTransactionSignature::from_bytes([1; 64]),
@@ -127,7 +127,7 @@ mod tests {
     impl EthereumDepositSettlementVerifier for StubEthereumDepositSettlementVerifier {
         async fn verify(
             &self,
-            _request: EthereumDepositSettlementVerifyRequest,
+            _request: EthereumDepositSettlementVerificationRequest,
         ) -> Result<EthereumDepositSettlementVerification, DepositSettlementVerifierError> {
             Ok(EthereumDepositSettlementVerification {
                 transaction_id: EvmTransactionHash::from_bytes([2; 32]),
@@ -167,7 +167,7 @@ mod tests {
             StubSolanaDepositSettlementVerifier,
             StubEthereumDepositSettlementVerifier,
         );
-        let request = DepositSettlementVerifyRequest {
+        let request = DepositSettlementVerificationRequest {
             deposit_id: DepositId::new(),
             currency_decimals: CurrencyDecimals::new(6),
             chain_network: ChainNetwork::Solana,
@@ -189,8 +189,8 @@ mod tests {
         ));
     }
 
-    fn solana_request() -> DepositSettlementVerifyRequest {
-        DepositSettlementVerifyRequest {
+    fn solana_request() -> DepositSettlementVerificationRequest {
+        DepositSettlementVerificationRequest {
             deposit_id: DepositId::new(),
             currency_decimals: CurrencyDecimals::new(6),
             chain_network: ChainNetwork::Solana,
@@ -207,8 +207,8 @@ mod tests {
         }
     }
 
-    fn ethereum_request() -> DepositSettlementVerifyRequest {
-        DepositSettlementVerifyRequest {
+    fn ethereum_request() -> DepositSettlementVerificationRequest {
+        DepositSettlementVerificationRequest {
             deposit_id: DepositId::new(),
             currency_decimals: CurrencyDecimals::new(6),
             chain_network: ChainNetwork::Ethereum,

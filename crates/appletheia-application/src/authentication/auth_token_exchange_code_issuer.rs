@@ -1,7 +1,7 @@
 use crate::unit_of_work::UnitOfWork;
 
 use super::{
-    AuthTokenExchangeCodeIssueRequest, AuthTokenExchangeCodeIssueResult,
+    AuthTokenExchangeCodeIssuanceRequest, AuthTokenExchangeCodeIssueResult,
     AuthTokenExchangeCodeIssuerError,
 };
 
@@ -15,6 +15,6 @@ pub trait AuthTokenExchangeCodeIssuer: Send + Sync {
     async fn issue(
         &self,
         uow: &mut Self::Uow,
-        request: AuthTokenExchangeCodeIssueRequest,
+        request: AuthTokenExchangeCodeIssuanceRequest,
     ) -> Result<AuthTokenExchangeCodeIssueResult, AuthTokenExchangeCodeIssuerError>;
 }

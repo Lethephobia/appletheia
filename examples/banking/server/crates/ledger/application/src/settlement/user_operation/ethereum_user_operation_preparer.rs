@@ -1,5 +1,5 @@
 use super::{
-    EthereumUserOperationPreparation, EthereumUserOperationPrepareRequest,
+    EthereumUserOperationPreparation, EthereumUserOperationPreparationRequest,
     EthereumUserOperationPreparerError,
 };
 
@@ -7,6 +7,6 @@ use super::{
 pub trait EthereumUserOperationPreparer: Send + Sync {
     async fn prepare(
         &self,
-        request: EthereumUserOperationPrepareRequest,
+        request: EthereumUserOperationPreparationRequest,
     ) -> Result<EthereumUserOperationPreparation, EthereumUserOperationPreparerError>;
 }

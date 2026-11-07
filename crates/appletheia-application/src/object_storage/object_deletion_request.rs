@@ -3,12 +3,12 @@ use serde::{Deserialize, Serialize};
 use super::{ObjectBucketName, ObjectName};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct ObjectDeleteRequest {
+pub struct ObjectDeletionRequest {
     bucket_name: ObjectBucketName,
     object_name: ObjectName,
 }
 
-impl ObjectDeleteRequest {
+impl ObjectDeletionRequest {
     pub fn new(bucket_name: ObjectBucketName, object_name: ObjectName) -> Self {
         Self {
             bucket_name,

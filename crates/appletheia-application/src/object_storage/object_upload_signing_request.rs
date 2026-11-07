@@ -6,7 +6,7 @@ use super::{
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct ObjectUploadSignRequest {
+pub struct ObjectUploadSigningRequest {
     method: ObjectUploadMethod,
     bucket_name: ObjectBucketName,
     object_name: ObjectName,
@@ -16,7 +16,7 @@ pub struct ObjectUploadSignRequest {
     expires_in: ObjectUploadExpiresIn,
 }
 
-impl ObjectUploadSignRequest {
+impl ObjectUploadSigningRequest {
     pub fn new(
         bucket_name: ObjectBucketName,
         object_name: ObjectName,

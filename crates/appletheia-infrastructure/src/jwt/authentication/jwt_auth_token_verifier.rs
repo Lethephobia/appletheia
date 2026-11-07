@@ -85,7 +85,7 @@ impl AuthTokenVerifier for JwtAuthTokenVerifier {
 mod tests {
     use appletheia_application::{
         AggregateIdValue, AggregateRef, AggregateTypeOwned, AuthTokenAudience, AuthTokenAudiences,
-        AuthTokenExpiresIn, AuthTokenIssueRequest, AuthTokenIssuer, AuthTokenIssuerUrl,
+        AuthTokenExpiresIn, AuthTokenIssuanceRequest, AuthTokenIssuer, AuthTokenIssuerUrl,
         AuthTokenIssuerUrls,
     };
     use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
@@ -133,7 +133,7 @@ mod tests {
             aggregate_id: AggregateIdValue::from(Uuid::from_u128(1)),
         };
         let issued = issuer
-            .issue(AuthTokenIssueRequest::new(subject))
+            .issue(AuthTokenIssuanceRequest::new(subject))
             .await
             .unwrap();
         let verified = verifier.verify(issued.token()).await.unwrap();

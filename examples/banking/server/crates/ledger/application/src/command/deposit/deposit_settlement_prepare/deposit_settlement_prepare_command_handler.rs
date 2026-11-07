@@ -16,7 +16,7 @@ use super::{
     DepositSettlementPrepareCommand, DepositSettlementPrepareCommandHandlerError,
     DepositSettlementPrepareOutput,
 };
-use crate::settlement::{DepositSettlementPrepareRequest, DepositSettlementPreparer};
+use crate::settlement::{DepositSettlementPreparationRequest, DepositSettlementPreparer};
 
 pub struct DepositSettlementPrepareCommandHandler<R, DSP>
 where
@@ -112,7 +112,7 @@ where
 
         let preparation = self
             .deposit_settlement_preparer
-            .prepare(DepositSettlementPrepareRequest::new(
+            .prepare(DepositSettlementPreparationRequest::new(
                 deposit_id,
                 currency.decimals()?,
                 chain_network,

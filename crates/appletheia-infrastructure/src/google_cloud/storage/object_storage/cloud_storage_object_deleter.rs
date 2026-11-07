@@ -1,5 +1,5 @@
 use appletheia_application::{
-    ObjectBucketName, ObjectDeleteRequest, ObjectDeleter, ObjectDeleterError,
+    ObjectBucketName, ObjectDeleter, ObjectDeleterError, ObjectDeletionRequest,
 };
 use google_cloud_storage::client::StorageControl;
 
@@ -21,7 +21,7 @@ impl CloudStorageObjectDeleter {
 }
 
 impl ObjectDeleter for CloudStorageObjectDeleter {
-    async fn delete(&self, request: ObjectDeleteRequest) -> Result<(), ObjectDeleterError> {
+    async fn delete(&self, request: ObjectDeletionRequest) -> Result<(), ObjectDeleterError> {
         self.client
             .delete_object()
             .set_bucket(Self::bucket_resource_name(request.bucket_name()))

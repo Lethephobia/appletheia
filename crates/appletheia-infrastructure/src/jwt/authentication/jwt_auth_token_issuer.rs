@@ -1,5 +1,5 @@
 use appletheia_application::{
-    AuthToken, AuthTokenClaims, AuthTokenExpiresAt, AuthTokenId, AuthTokenIssueRequest,
+    AuthToken, AuthTokenClaims, AuthTokenExpiresAt, AuthTokenId, AuthTokenIssuanceRequest,
     AuthTokenIssueResult, AuthTokenIssuedAt, AuthTokenIssuer, AuthTokenIssuerError,
 };
 use jsonwebtoken::{Header, encode};
@@ -22,7 +22,7 @@ impl JwtAuthTokenIssuer {
 impl AuthTokenIssuer for JwtAuthTokenIssuer {
     async fn issue(
         &self,
-        request: AuthTokenIssueRequest,
+        request: AuthTokenIssuanceRequest,
     ) -> Result<AuthTokenIssueResult, AuthTokenIssuerError> {
         let encoding_key = self
             .config

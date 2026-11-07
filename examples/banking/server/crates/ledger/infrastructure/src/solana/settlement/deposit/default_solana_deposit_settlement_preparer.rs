@@ -2,7 +2,7 @@ use anchor_lang::{InstructionData, ToAccountMetas};
 use appletheia::domain::AggregateId;
 use banking_ledger_application::settlement::{
     DepositSettlementPreparerError, SolanaDepositSettlementPreparation,
-    SolanaDepositSettlementPrepareRequest, SolanaDepositSettlementPreparer,
+    SolanaDepositSettlementPreparationRequest, SolanaDepositSettlementPreparer,
     SolanaPreparedDepositTransaction,
 };
 use banking_ledger_domain::core::TokenDecimals;
@@ -81,7 +81,7 @@ impl DefaultSolanaDepositSettlementPreparer {
 impl SolanaDepositSettlementPreparer for DefaultSolanaDepositSettlementPreparer {
     async fn prepare(
         &self,
-        request: SolanaDepositSettlementPrepareRequest,
+        request: SolanaDepositSettlementPreparationRequest,
     ) -> Result<SolanaDepositSettlementPreparation, DepositSettlementPreparerError> {
         let mint = Pubkey::new_from_array(*request.token_address().address().as_bytes());
         let token_account_owner =

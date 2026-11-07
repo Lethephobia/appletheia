@@ -4,7 +4,7 @@ use alloy::rpc::types::PackedUserOperation;
 use alloy::signers::SignerSync;
 use alloy::sol_types::SolValue;
 use banking_ledger_application::settlement::{
-    EthereumUserOperationPreparation, EthereumUserOperationPrepareRequest,
+    EthereumUserOperationPreparation, EthereumUserOperationPreparationRequest,
     EthereumUserOperationPreparer, EthereumUserOperationPreparerError, EvmCallData, EvmQuantity,
     EvmUserOperation, EvmUserOperationRequest,
 };
@@ -89,7 +89,7 @@ impl DefaultEthereumUserOperationPreparer {
 impl EthereumUserOperationPreparer for DefaultEthereumUserOperationPreparer {
     async fn prepare(
         &self,
-        request: EthereumUserOperationPrepareRequest,
+        request: EthereumUserOperationPreparationRequest,
     ) -> Result<EthereumUserOperationPreparation, EthereumUserOperationPreparerError> {
         let transaction_request = request.transaction_request();
         let provider_chain_id = self.chain_provider.get_chain_id().await.map_err(|error| {

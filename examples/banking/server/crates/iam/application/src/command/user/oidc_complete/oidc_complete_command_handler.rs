@@ -3,8 +3,8 @@ use appletheia::application::authentication::oidc::{
     OidcCallbackParams, OidcContinuationStore, OidcLoginFlow,
 };
 use appletheia::application::authentication::{
-    AuthTokenExchangeCodeIssueRequest, AuthTokenExchangeCodeIssuer, AuthTokenExchangeGrant,
-    AuthTokenIssueRequest, AuthTokenIssuer,
+    AuthTokenExchangeCodeIssuanceRequest, AuthTokenExchangeCodeIssuer, AuthTokenExchangeGrant,
+    AuthTokenIssuanceRequest, AuthTokenIssuer,
 };
 use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
 use appletheia::application::command::CommandHandler;
@@ -212,7 +212,7 @@ where
                 let subject = AggregateRef::from_aggregate(&user);
                 let result = self
                     .auth_token_issuer
-                    .issue(AuthTokenIssueRequest::new(subject))
+                    .issue(AuthTokenIssuanceRequest::new(subject))
                     .await?;
 
                 OidcCompleteOutput::Token {
@@ -229,7 +229,7 @@ where
                     .auth_token_exchange_code_issuer
                     .issue(
                         uow,
-                        AuthTokenExchangeCodeIssueRequest::new(
+                        AuthTokenExchangeCodeIssuanceRequest::new(
                             AuthTokenExchangeGrant::new(subject, Some(complete_result.tokens)),
                             code_challenge,
                         ),

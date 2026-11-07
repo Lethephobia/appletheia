@@ -1,28 +1,27 @@
 use banking_ledger_domain::core::{
     CurrencyAmount, CurrencyDecimals, EvmTokenContractAddress, EvmTokenOwnerAddress,
+    EvmTransactionHash,
 };
 use banking_ledger_domain::deposit::DepositId;
 
-use super::EvmDepositAuthorization;
-
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct EthereumDepositSettlementTransactionPrepareRequest {
+pub struct EthereumDepositSettlementVerificationRequest {
     deposit_id: DepositId,
     currency_decimals: CurrencyDecimals,
     token_address: EvmTokenContractAddress,
     token_owner_address: EvmTokenOwnerAddress,
     amount: CurrencyAmount,
-    authorization: Option<EvmDepositAuthorization>,
+    transaction_id: EvmTransactionHash,
 }
 
-impl EthereumDepositSettlementTransactionPrepareRequest {
+impl EthereumDepositSettlementVerificationRequest {
     pub fn new(
         deposit_id: DepositId,
         currency_decimals: CurrencyDecimals,
         token_address: EvmTokenContractAddress,
         token_owner_address: EvmTokenOwnerAddress,
         amount: CurrencyAmount,
-        authorization: Option<EvmDepositAuthorization>,
+        transaction_id: EvmTransactionHash,
     ) -> Self {
         Self {
             deposit_id,
@@ -30,7 +29,7 @@ impl EthereumDepositSettlementTransactionPrepareRequest {
             token_address,
             token_owner_address,
             amount,
-            authorization,
+            transaction_id,
         }
     }
 
@@ -54,7 +53,7 @@ impl EthereumDepositSettlementTransactionPrepareRequest {
         self.amount
     }
 
-    pub const fn authorization(&self) -> Option<EvmDepositAuthorization> {
-        self.authorization
+    pub const fn transaction_id(&self) -> EvmTransactionHash {
+        self.transaction_id
     }
 }

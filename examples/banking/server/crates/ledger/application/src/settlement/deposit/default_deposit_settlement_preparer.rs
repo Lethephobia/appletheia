@@ -1,12 +1,12 @@
 use banking_ledger_domain::core::{ChainNetwork, TokenAddress, TokenOwnerAddress};
 
 use super::{
-    DepositSettlementPreparation, DepositSettlementPrepareRequest, DepositSettlementPreparer,
-    DepositSettlementPreparerError, EthereumDepositSettlementTransactionPrepareRequest,
-    EthereumDepositSettlementTransactionPreparer, SolanaDepositSettlementPrepareRequest,
+    DepositSettlementPreparation, DepositSettlementPreparationRequest, DepositSettlementPreparer,
+    DepositSettlementPreparerError, EthereumDepositSettlementTransactionPreparationRequest,
+    EthereumDepositSettlementTransactionPreparer, SolanaDepositSettlementPreparationRequest,
     SolanaDepositSettlementPreparer,
 };
-use crate::settlement::{EthereumUserOperationPrepareRequest, EthereumUserOperationPreparer};
+use crate::settlement::{EthereumUserOperationPreparationRequest, EthereumUserOperationPreparer};
 
 pub struct DefaultDepositSettlementPreparer<S, T, U>
 where
@@ -42,7 +42,7 @@ where
 {
     async fn prepare(
         &self,
-        request: DepositSettlementPrepareRequest,
+        request: DepositSettlementPreparationRequest,
     ) -> Result<DepositSettlementPreparation, DepositSettlementPreparerError> {
         let preparation = match (
             request.chain_network(),
@@ -59,7 +59,7 @@ where
                 }
                 let solana_preparation = self
                     .solana
-                    .prepare(SolanaDepositSettlementPrepareRequest::new(
+                    .prepare(SolanaDepositSettlementPreparationRequest::new(
                         request.deposit_id(),
                         request.currency_decimals(),
                         token_address,
@@ -76,7 +76,7 @@ where
             ) => {
                 let transaction_preparation = self
                     .ethereum_transaction
-                    .prepare(EthereumDepositSettlementTransactionPrepareRequest::new(
+                    .prepare(EthereumDepositSettlementTransactionPreparationRequest::new(
                         request.deposit_id(),
                         request.currency_decimals(),
                         token_address,
@@ -87,7 +87,7 @@ where
                     .await?;
                 let user_operation_preparation = self
                     .ethereum_user_operation
-                    .prepare(EthereumUserOperationPrepareRequest::new(
+                    .prepare(EthereumUserOperationPreparationRequest::new(
                         transaction_preparation.into_transaction_request(),
                     ))
                     .await?;
@@ -117,17 +117,17 @@ mod tests {
         Erc3009ReceiveAuthorizationSignature, Erc3009ReceiveAuthorizationValidAfter,
         Erc3009ReceiveAuthorizationValidBefore, EthereumDepositSettlementTransactionPreparation,
         EthereumDepositSettlementTransactionPreparerError, EthereumUserOperationPreparation,
-        EthereumUserOperationPrepareRequest, EthereumUserOperationPreparer,
+        EthereumUserOperationPreparationRequest, EthereumUserOperationPreparer,
         EthereumUserOperationPreparerError, EvmCallData, EvmDepositAuthorization, EvmQuantity,
         EvmTransactionRequest, EvmUserOperation, EvmUserOperationRequest,
         SolanaDepositSettlementPreparation, SolanaPreparedDepositTransaction,
     };
 
     use super::{
-        DefaultDepositSettlementPreparer, DepositSettlementPrepareRequest,
+        DefaultDepositSettlementPreparer, DepositSettlementPreparationRequest,
         DepositSettlementPreparer, DepositSettlementPreparerError,
-        EthereumDepositSettlementTransactionPrepareRequest,
-        EthereumDepositSettlementTransactionPreparer, SolanaDepositSettlementPrepareRequest,
+        EthereumDepositSettlementTransactionPreparationRequest,
+        EthereumDepositSettlementTransactionPreparer, SolanaDepositSettlementPreparationRequest,
         SolanaDepositSettlementPreparer,
     };
 
@@ -136,7 +136,7 @@ mod tests {
     impl SolanaDepositSettlementPreparer for StubSolanaDepositSettlementPreparer {
         async fn prepare(
             &self,
-            _request: SolanaDepositSettlementPrepareRequest,
+            _request: SolanaDepositSettlementPreparationRequest,
         ) -> Result<SolanaDepositSettlementPreparation, DepositSettlementPreparerError> {
             Ok(SolanaDepositSettlementPreparation {
                 transaction: SolanaPreparedDepositTransaction::from_bytes(b"solana".to_vec()),
@@ -151,7 +151,7 @@ mod tests {
     {
         async fn prepare(
             &self,
-            request: EthereumDepositSettlementTransactionPrepareRequest,
+            request: EthereumDepositSettlementTransactionPreparationRequest,
         ) -> Result<
             EthereumDepositSettlementTransactionPreparation,
             EthereumDepositSettlementTransactionPreparerError,
@@ -172,7 +172,7 @@ mod tests {
     impl EthereumUserOperationPreparer for StubEthereumUserOperationPreparer {
         async fn prepare(
             &self,
-            request: EthereumUserOperationPrepareRequest,
+            request: EthereumUserOperationPreparationRequest,
         ) -> Result<EthereumUserOperationPreparation, EthereumUserOperationPreparerError> {
             assert_eq!(
                 request.transaction_request().chain_id(),
@@ -270,7 +270,7 @@ mod tests {
             StubEthereumDepositSettlementTransactionPreparer,
             StubEthereumUserOperationPreparer,
         );
-        let request = DepositSettlementPrepareRequest::new(
+        let request = DepositSettlementPreparationRequest::new(
             DepositId::new(),
             CurrencyDecimals::new(6),
             ChainNetwork::Solana,
@@ -292,8 +292,8 @@ mod tests {
 
     fn solana_request(
         evm_authorization: Option<EvmDepositAuthorization>,
-    ) -> DepositSettlementPrepareRequest {
-        DepositSettlementPrepareRequest::new(
+    ) -> DepositSettlementPreparationRequest {
+        DepositSettlementPreparationRequest::new(
             DepositId::new(),
             CurrencyDecimals::new(6),
             ChainNetwork::Solana,
@@ -310,8 +310,8 @@ mod tests {
 
     fn ethereum_request(
         evm_authorization: Option<EvmDepositAuthorization>,
-    ) -> DepositSettlementPrepareRequest {
-        DepositSettlementPrepareRequest::new(
+    ) -> DepositSettlementPreparationRequest {
+        DepositSettlementPreparationRequest::new(
             DepositId::new(),
             CurrencyDecimals::new(6),
             ChainNetwork::Ethereum,

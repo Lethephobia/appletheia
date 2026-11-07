@@ -1,11 +1,11 @@
 use super::EvmTransactionRequest;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct EthereumUserOperationPrepareRequest {
+pub struct EthereumUserOperationPreparationRequest {
     transaction_request: EvmTransactionRequest,
 }
 
-impl EthereumUserOperationPrepareRequest {
+impl EthereumUserOperationPreparationRequest {
     pub const fn new(transaction_request: EvmTransactionRequest) -> Self {
         Self {
             transaction_request,

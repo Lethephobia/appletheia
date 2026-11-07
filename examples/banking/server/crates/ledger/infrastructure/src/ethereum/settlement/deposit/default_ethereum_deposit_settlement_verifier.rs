@@ -4,7 +4,7 @@ use alloy::sol_types::SolValue;
 use appletheia::domain::AggregateId;
 use banking_ledger_application::settlement::{
     DepositSettlementVerifierError, EthereumDepositSettlementVerification,
-    EthereumDepositSettlementVerifier, EthereumDepositSettlementVerifyRequest,
+    EthereumDepositSettlementVerificationRequest, EthereumDepositSettlementVerifier,
 };
 use banking_ledger_domain::core::TokenDecimals;
 
@@ -30,7 +30,7 @@ impl DefaultEthereumDepositSettlementVerifier {
 impl EthereumDepositSettlementVerifier for DefaultEthereumDepositSettlementVerifier {
     async fn verify(
         &self,
-        request: EthereumDepositSettlementVerifyRequest,
+        request: EthereumDepositSettlementVerificationRequest,
     ) -> Result<EthereumDepositSettlementVerification, DepositSettlementVerifierError> {
         let transaction_id = request.transaction_id();
         let transaction_hash = B256::from(*transaction_id.as_bytes());

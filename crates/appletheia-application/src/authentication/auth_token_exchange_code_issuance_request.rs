@@ -2,12 +2,12 @@ use super::{AuthTokenExchangeGrant, PkceCodeChallenge};
 
 /// Contains the information required to issue an exchange code.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AuthTokenExchangeCodeIssueRequest {
+pub struct AuthTokenExchangeCodeIssuanceRequest {
     grant: AuthTokenExchangeGrant,
     code_challenge: Option<PkceCodeChallenge>,
 }
 
-impl AuthTokenExchangeCodeIssueRequest {
+impl AuthTokenExchangeCodeIssuanceRequest {
     /// Creates a new exchange code issue request.
     pub fn new(grant: AuthTokenExchangeGrant, code_challenge: Option<PkceCodeChallenge>) -> Self {
         Self {

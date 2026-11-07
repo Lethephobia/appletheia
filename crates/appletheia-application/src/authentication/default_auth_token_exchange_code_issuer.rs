@@ -1,5 +1,5 @@
 use super::{
-    AuthTokenExchangeCode, AuthTokenExchangeCodeHasher, AuthTokenExchangeCodeIssueRequest,
+    AuthTokenExchangeCode, AuthTokenExchangeCodeHasher, AuthTokenExchangeCodeIssuanceRequest,
     AuthTokenExchangeCodeIssueResult, AuthTokenExchangeCodeIssuer,
     AuthTokenExchangeCodeIssuerConfig, AuthTokenExchangeCodeIssuerError,
     AuthTokenExchangeCodeRecord, AuthTokenExchangeCodeStore, AuthTokenExchangeGrantCipher,
@@ -53,7 +53,7 @@ where
     async fn issue(
         &self,
         uow: &mut Self::Uow,
-        request: AuthTokenExchangeCodeIssueRequest,
+        request: AuthTokenExchangeCodeIssuanceRequest,
     ) -> Result<AuthTokenExchangeCodeIssueResult, AuthTokenExchangeCodeIssuerError> {
         let code = AuthTokenExchangeCode::new();
         let code_hash = self.code_hasher.hash_code(&code)?;

@@ -1,6 +1,6 @@
 use super::{
     EthereumDepositSettlementTransactionPreparation,
-    EthereumDepositSettlementTransactionPrepareRequest,
+    EthereumDepositSettlementTransactionPreparationRequest,
     EthereumDepositSettlementTransactionPreparerError,
 };
 
@@ -8,7 +8,7 @@ use super::{
 pub trait EthereumDepositSettlementTransactionPreparer: Send + Sync {
     async fn prepare(
         &self,
-        request: EthereumDepositSettlementTransactionPrepareRequest,
+        request: EthereumDepositSettlementTransactionPreparationRequest,
     ) -> Result<
         EthereumDepositSettlementTransactionPreparation,
         EthereumDepositSettlementTransactionPreparerError,

@@ -1,9 +1,9 @@
-use super::{ObjectUploadSignRequest, ObjectUploadSignerError, SignedObjectUpload};
+use super::{ObjectUploadSignerError, ObjectUploadSigningRequest, SignedObjectUpload};
 
 #[allow(async_fn_in_trait)]
 pub trait ObjectUploadSigner: Send + Sync {
     async fn sign(
         &self,
-        request: ObjectUploadSignRequest,
+        request: ObjectUploadSigningRequest,
     ) -> Result<SignedObjectUpload, ObjectUploadSignerError>;
 }

@@ -4,7 +4,7 @@ use alloy::signers::SignerSync;
 use appletheia::domain::AggregateId;
 use banking_ledger_application::settlement::{
     EthereumDepositSettlementTransactionPreparation,
-    EthereumDepositSettlementTransactionPrepareRequest,
+    EthereumDepositSettlementTransactionPreparationRequest,
     EthereumDepositSettlementTransactionPreparer,
     EthereumDepositSettlementTransactionPreparerError, EvmCallData, EvmDepositAuthorization,
     EvmTransactionRequest,
@@ -48,7 +48,7 @@ impl EthereumDepositSettlementTransactionPreparer
 {
     async fn prepare(
         &self,
-        request: EthereumDepositSettlementTransactionPrepareRequest,
+        request: EthereumDepositSettlementTransactionPreparationRequest,
     ) -> Result<
         EthereumDepositSettlementTransactionPreparation,
         EthereumDepositSettlementTransactionPreparerError,

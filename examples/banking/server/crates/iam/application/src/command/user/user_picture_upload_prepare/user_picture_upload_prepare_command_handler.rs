@@ -3,7 +3,7 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::command::CommandHandler;
 use appletheia::application::object_storage::{
-    ObjectName, ObjectUploadSignRequest, ObjectUploadSigner,
+    ObjectName, ObjectUploadSigner, ObjectUploadSigningRequest,
 };
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
@@ -106,7 +106,7 @@ where
         let picture_object_name = UserPictureObjectName::new(command.user_id);
         let picture = UserPictureRef::object_name(picture_object_name.clone());
         let object_name = ObjectName::new(picture_object_name.value().to_owned())?;
-        let request = ObjectUploadSignRequest::new(
+        let request = ObjectUploadSigningRequest::new(
             self.config.bucket_name().clone(),
             object_name,
             command.content_type.clone(),
@@ -138,8 +138,8 @@ mod tests {
     use appletheia::application::object_storage::{
         ObjectBucketName, ObjectChecksum, ObjectChecksumAlgorithm, ObjectChecksumValue,
         ObjectContentLength, ObjectContentType, ObjectContentTypes, ObjectUploadExpiresIn,
-        ObjectUploadHeaders, ObjectUploadSignRequest, ObjectUploadSigner, ObjectUploadSignerError,
-        SignedObjectUpload, SignedObjectUploadUrl,
+        ObjectUploadHeaders, ObjectUploadSigner, ObjectUploadSignerError,
+        ObjectUploadSigningRequest, SignedObjectUpload, SignedObjectUploadUrl,
     };
 
     use appletheia::application::repository::{Repository, RepositoryError};
@@ -289,7 +289,7 @@ mod tests {
 
     #[derive(Clone)]
     struct TestObjectUploadSigner {
-        request: Arc<Mutex<Option<ObjectUploadSignRequest>>>,
+        request: Arc<Mutex<Option<ObjectUploadSigningRequest>>>,
         signed_upload: SignedObjectUpload,
     }
 
@@ -305,7 +305,7 @@ mod tests {
     impl ObjectUploadSigner for TestObjectUploadSigner {
         async fn sign(
             &self,
-            request: ObjectUploadSignRequest,
+            request: ObjectUploadSigningRequest,
         ) -> Result<SignedObjectUpload, ObjectUploadSignerError> {
             *self.request.lock().expect("lock") = Some(request);
             Ok(self.signed_upload.clone())

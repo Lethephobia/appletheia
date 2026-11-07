@@ -8,7 +8,7 @@ use banking_ledger_domain::deposit::Deposit;
 use banking_ledger_domain::deposit::DepositError;
 use banking_ledger_domain::token_binding::TokenBinding;
 
-use crate::settlement::{DepositSettlementVerifier, DepositSettlementVerifyRequest};
+use crate::settlement::{DepositSettlementVerificationRequest, DepositSettlementVerifier};
 
 use super::{
     DepositSettlementVerifyCommand, DepositSettlementVerifyCommandHandlerError,
@@ -98,7 +98,7 @@ where
 
         let verification = self
             .deposit_settlement_verifier
-            .verify(DepositSettlementVerifyRequest {
+            .verify(DepositSettlementVerificationRequest {
                 deposit_id: command.deposit_id,
                 currency_decimals: currency.decimals()?,
                 chain_network,
