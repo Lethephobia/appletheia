@@ -1,7 +1,7 @@
+mod handle_withdrawal_settle_instruction;
 pub mod withdrawal_settle_instruction_accounts;
 pub mod withdrawal_settle_instruction_error;
-mod withdrawal_settle_instruction_handler;
 
+pub(crate) use handle_withdrawal_settle_instruction::handle_withdrawal_settle_instruction;
 pub use withdrawal_settle_instruction_accounts::WithdrawalSettleInstructionAccounts;
 pub use withdrawal_settle_instruction_error::WithdrawalSettleInstructionError;
-pub(crate) use withdrawal_settle_instruction_handler::WithdrawalSettleInstructionHandler;

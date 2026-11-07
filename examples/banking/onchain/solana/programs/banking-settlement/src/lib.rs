@@ -5,9 +5,9 @@ pub mod instruction_handler;
 
 use anchor_lang::prelude::*;
 
-use instruction_handler::banking_settlement_config_configure::BankingSettlementConfigConfigureInstructionHandler;
-use instruction_handler::deposit_settle::DepositSettleInstructionHandler;
-use instruction_handler::withdrawal_settle::WithdrawalSettleInstructionHandler;
+use instruction_handler::banking_settlement_config_configure::handle_banking_settlement_config_configure_instruction;
+use instruction_handler::deposit_settle::handle_deposit_settle_instruction;
+use instruction_handler::withdrawal_settle::handle_withdrawal_settle_instruction;
 
 pub use account::{
     BankingSettlementConfig, BankingSettlementConfigVersion, DepositSettlementReceipt,
@@ -46,7 +46,7 @@ pub mod banking_settlement {
     pub fn configure_banking_settlement_config(
         ctx: Context<BankingSettlementConfigConfigureInstructionAccounts>,
     ) -> Result<()> {
-        BankingSettlementConfigConfigureInstructionHandler::handle(ctx)
+        handle_banking_settlement_config_configure_instruction(ctx)
     }
 
     pub fn settle_deposit(
@@ -54,7 +54,7 @@ pub mod banking_settlement {
         deposit_id: [u8; 16],
         token_amount: u64,
     ) -> Result<()> {
-        DepositSettleInstructionHandler::handle(ctx, deposit_id, token_amount)
+        handle_deposit_settle_instruction(ctx, deposit_id, token_amount)
     }
 
     pub fn settle_withdrawal(
@@ -62,6 +62,6 @@ pub mod banking_settlement {
         withdrawal_id: [u8; 16],
         token_amount: u64,
     ) -> Result<()> {
-        WithdrawalSettleInstructionHandler::handle(ctx, withdrawal_id, token_amount)
+        handle_withdrawal_settle_instruction(ctx, withdrawal_id, token_amount)
     }
 }
