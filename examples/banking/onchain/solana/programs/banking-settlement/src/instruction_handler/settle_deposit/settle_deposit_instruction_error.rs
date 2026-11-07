@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 #[error_code]
-pub enum DepositSettleInstructionError {
+pub enum SettleDepositInstructionError {
     #[msg("operator is not authorized")]
     UnauthorizedOperator,
 

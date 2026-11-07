@@ -107,7 +107,7 @@ impl SolanaDepositSettlementPreparer for DefaultSolanaDepositSettlementPreparer 
             .map_err(|_| DepositSettlementPreparerError::InvalidAmount)?;
         let instruction = Instruction {
             program_id: self.config.program_id,
-            accounts: accounts::DepositSettleInstructionAccounts {
+            accounts: accounts::SettleDepositInstructionAccounts {
                 payer: self.config.payer.pubkey(),
                 banking_settlement_config: Pubkey::find_program_address(
                     &[BankingSettlementConfig::SEED],

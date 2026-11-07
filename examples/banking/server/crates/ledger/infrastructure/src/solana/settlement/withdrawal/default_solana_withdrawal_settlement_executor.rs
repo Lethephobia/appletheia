@@ -118,7 +118,7 @@ impl SolanaWithdrawalSettlementExecutor for DefaultSolanaWithdrawalSettlementExe
         }
         let instruction = Instruction {
             program_id: self.config.program_id,
-            accounts: accounts::WithdrawalSettleInstructionAccounts {
+            accounts: accounts::SettleWithdrawalInstructionAccounts {
                 payer: self.config.payer.pubkey(),
                 banking_settlement_config: Pubkey::find_program_address(
                     &[BankingSettlementConfig::SEED],

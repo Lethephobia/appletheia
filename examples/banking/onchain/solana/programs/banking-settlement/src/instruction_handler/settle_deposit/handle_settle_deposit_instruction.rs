@@ -2,10 +2,10 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{transfer_checked, TransferChecked};
 
 use crate::account::{DepositSettlementReceipt, DepositSettlementReceiptInitialization};
-use crate::instruction_handler::{DepositSettleInstructionAccounts, DepositSettleInstructionError};
+use crate::instruction_handler::{SettleDepositInstructionAccounts, SettleDepositInstructionError};
 
 fn transfer_to_pool<'context, 'info>(
-    ctx: &Context<'context, DepositSettleInstructionAccounts<'info>>,
+    ctx: &Context<'context, SettleDepositInstructionAccounts<'info>>,
     token_amount: u64,
 ) -> Result<()> {
     let accounts = TransferChecked {
@@ -19,8 +19,8 @@ fn transfer_to_pool<'context, 'info>(
     transfer_checked(cpi_context, token_amount, ctx.accounts.mint.decimals)
 }
 
-pub(crate) fn handle_deposit_settle_instruction(
-    ctx: Context<DepositSettleInstructionAccounts>,
+pub(crate) fn handle_settle_deposit_instruction(
+    ctx: Context<SettleDepositInstructionAccounts>,
     _deposit_id: [u8; 16],
     token_amount: u64,
 ) -> Result<()> {
@@ -33,7 +33,7 @@ pub(crate) fn handle_deposit_settle_instruction(
                 && ctx.accounts.deposit_settlement_receipt.token_account_owner
                     == ctx.accounts.token_account_owner.key()
                 && ctx.accounts.deposit_settlement_receipt.token_amount == token_amount,
-            DepositSettleInstructionError::DepositSettlementReceiptConflict
+            SettleDepositInstructionError::DepositSettlementReceiptConflict
         );
 
         return Ok(());

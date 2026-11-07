@@ -5,11 +5,11 @@ use anchor_spl::{
 };
 
 use crate::account::{BankingSettlementConfig, PoolAuthority, WithdrawalSettlementReceipt};
-use crate::instruction_handler::WithdrawalSettleInstructionError;
+use crate::instruction_handler::SettleWithdrawalInstructionError;
 
 #[derive(Accounts)]
 #[instruction(withdrawal_id: [u8; 16])]
-pub struct WithdrawalSettleInstructionAccounts<'info> {
+pub struct SettleWithdrawalInstructionAccounts<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
     #[account(
@@ -19,7 +19,7 @@ pub struct WithdrawalSettleInstructionAccounts<'info> {
     pub banking_settlement_config: Account<'info, BankingSettlementConfig>,
     #[account(
         constraint = operator.key() == banking_settlement_config.operator
-            @ WithdrawalSettleInstructionError::UnauthorizedOperator,
+            @ SettleWithdrawalInstructionError::UnauthorizedOperator,
     )]
     pub operator: Signer<'info>,
     #[account(

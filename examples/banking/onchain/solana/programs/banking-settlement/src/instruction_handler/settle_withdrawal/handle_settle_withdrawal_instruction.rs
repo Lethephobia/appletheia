@@ -5,11 +5,11 @@ use crate::account::{
     PoolAuthority, WithdrawalSettlementReceipt, WithdrawalSettlementReceiptInitialization,
 };
 use crate::instruction_handler::{
-    WithdrawalSettleInstructionAccounts, WithdrawalSettleInstructionError,
+    SettleWithdrawalInstructionAccounts, SettleWithdrawalInstructionError,
 };
 
 fn transfer_from_pool<'context, 'info>(
-    ctx: &Context<'context, WithdrawalSettleInstructionAccounts<'info>>,
+    ctx: &Context<'context, SettleWithdrawalInstructionAccounts<'info>>,
     token_amount: u64,
     signer_seeds: &[&[&[u8]]],
 ) -> Result<()> {
@@ -25,8 +25,8 @@ fn transfer_from_pool<'context, 'info>(
     transfer_checked(cpi_context, token_amount, ctx.accounts.mint.decimals)
 }
 
-pub(crate) fn handle_withdrawal_settle_instruction(
-    ctx: Context<WithdrawalSettleInstructionAccounts>,
+pub(crate) fn handle_settle_withdrawal_instruction(
+    ctx: Context<SettleWithdrawalInstructionAccounts>,
     _withdrawal_id: [u8; 16],
     token_amount: u64,
 ) -> Result<()> {
@@ -41,7 +41,7 @@ pub(crate) fn handle_withdrawal_settle_instruction(
                     .token_account_owner
                     == ctx.accounts.token_account_owner.key()
                 && ctx.accounts.withdrawal_settlement_receipt.token_amount == token_amount,
-            WithdrawalSettleInstructionError::WithdrawalSettlementReceiptConflict
+            SettleWithdrawalInstructionError::WithdrawalSettlementReceiptConflict
         );
 
         return Ok(());

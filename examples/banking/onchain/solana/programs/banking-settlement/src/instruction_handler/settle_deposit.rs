@@ -1,0 +1,7 @@
+mod handle_settle_deposit_instruction;
+pub mod settle_deposit_instruction_accounts;
+mod settle_deposit_instruction_error;
+
+pub(crate) use handle_settle_deposit_instruction::handle_settle_deposit_instruction;
+pub use settle_deposit_instruction_accounts::SettleDepositInstructionAccounts;
+pub use settle_deposit_instruction_error::SettleDepositInstructionError;

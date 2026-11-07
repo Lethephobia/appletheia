@@ -1,10 +1,10 @@
 use anchor_lang::prelude::*;
 
 use crate::account::BankingSettlementConfigInitialization;
-use crate::instruction_handler::BankingSettlementConfigConfigureInstructionAccounts;
+use crate::instruction_handler::ConfigureBankingSettlementConfigInstructionAccounts;
 
-pub(crate) fn handle_banking_settlement_config_configure_instruction(
-    ctx: Context<BankingSettlementConfigConfigureInstructionAccounts>,
+pub(crate) fn handle_configure_banking_settlement_config_instruction(
+    ctx: Context<ConfigureBankingSettlementConfigInstructionAccounts>,
 ) -> Result<()> {
     let operator = ctx.accounts.operator.key();
 

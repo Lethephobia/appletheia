@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 #[error_code]
-pub enum BankingSettlementConfigConfigureInstructionError {
+pub enum ConfigureBankingSettlementConfigInstructionError {
     #[msg("program account does not match the banking settlement program")]
     ProgramAccountMismatch,
 
