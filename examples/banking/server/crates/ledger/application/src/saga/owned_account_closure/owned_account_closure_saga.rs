@@ -11,8 +11,8 @@ use super::{
     OwnedAccountClosureSagaHandlerError, OwnedAccountClosureSagaState, OwnedAccountClosureSagaStep,
 };
 use crate::command::{
-    AccountCloseCommand, OwnedAccountClosureAccountFailedRecordCommand,
-    OwnedAccountClosureAccountSucceededRecordCommand, OwnedAccountClosureScanCommand,
+    AccountCloseCommand, OwnedAccountClosureRecordAccountFailedCommand,
+    OwnedAccountClosureRecordAccountSucceededCommand, OwnedAccountClosureScanCommand,
     OwnedAccountClosureStartCommand,
 };
 
@@ -96,7 +96,7 @@ impl Saga for OwnedAccountClosureSaga {
                 .handle(|ctx, event| {
                     let state: &OwnedAccountClosureSagaState = ctx.state_required()?;
                     let owned_account_closure_id = state.owned_account_closure_id;
-                    ctx.append_command(&OwnedAccountClosureAccountSucceededRecordCommand {
+                    ctx.append_command(&OwnedAccountClosureRecordAccountSucceededCommand {
                         owned_account_closure_id,
                         account_id: event.aggregate_id(),
                     })?;
@@ -109,7 +109,7 @@ impl Saga for OwnedAccountClosureSaga {
                 .handle(|ctx, command| {
                     let state: &OwnedAccountClosureSagaState = ctx.state_required()?;
                     let owned_account_closure_id = state.owned_account_closure_id;
-                    ctx.append_command(&OwnedAccountClosureAccountFailedRecordCommand {
+                    ctx.append_command(&OwnedAccountClosureRecordAccountFailedCommand {
                         owned_account_closure_id,
                         account_id: command.account_id,
                     })?;
@@ -149,8 +149,8 @@ mod tests {
         OwnedAccountClosureSaga, OwnedAccountClosureSagaState, OwnedAccountClosureSagaStep,
     };
     use crate::command::{
-        AccountCloseCommand, OwnedAccountClosureAccountFailedRecordCommand,
-        OwnedAccountClosureAccountSucceededRecordCommand, OwnedAccountClosureScanCommand,
+        AccountCloseCommand, OwnedAccountClosureRecordAccountFailedCommand,
+        OwnedAccountClosureRecordAccountSucceededCommand, OwnedAccountClosureScanCommand,
         OwnedAccountClosureStartCommand,
     };
 
@@ -381,7 +381,7 @@ mod tests {
         )
         .unwrap();
         let command = instance.uncommitted_commands()[0]
-            .try_to_command::<OwnedAccountClosureAccountSucceededRecordCommand>()
+            .try_to_command::<OwnedAccountClosureRecordAccountSucceededCommand>()
             .unwrap();
         assert_eq!(command.account_id, account_id);
         assert_eq!(command.owned_account_closure_id, closure_id);
@@ -435,7 +435,7 @@ mod tests {
         let mut context = SagaContext::new(&mut instance, failure.causation_id, *step);
         handler(&mut context, &failure).unwrap();
         let record = instance.uncommitted_commands()[0]
-            .try_to_command::<OwnedAccountClosureAccountFailedRecordCommand>()
+            .try_to_command::<OwnedAccountClosureRecordAccountFailedCommand>()
             .unwrap();
         assert_eq!(record.account_id, account_id);
         assert_eq!(record.owned_account_closure_id, closure_id);

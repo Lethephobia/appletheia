@@ -132,10 +132,10 @@ where
 mod tests {
     use super::*;
     use crate::command::{
-        OwnedAccountClosureAccountFailedRecordCommand,
-        OwnedAccountClosureAccountFailedRecordCommandHandler,
-        OwnedAccountClosureAccountSucceededRecordCommand,
-        OwnedAccountClosureAccountSucceededRecordCommandHandler,
+        OwnedAccountClosureRecordAccountFailedCommand,
+        OwnedAccountClosureRecordAccountFailedCommandHandler,
+        OwnedAccountClosureRecordAccountSucceededCommand,
+        OwnedAccountClosureRecordAccountSucceededCommandHandler,
     };
     use appletheia::application::aggregate::SerializedAggregate;
     use appletheia::application::repository::ReferenceIndexLookupPageSize;
@@ -434,11 +434,11 @@ mod tests {
                 closure.aggregate_id()
             };
             if success {
-                OwnedAccountClosureAccountSucceededRecordCommandHandler::new(repository.clone())
+                OwnedAccountClosureRecordAccountSucceededCommandHandler::new(repository.clone())
                     .handle(
                         &mut TestUow,
                         &request_context(),
-                        &OwnedAccountClosureAccountSucceededRecordCommand {
+                        &OwnedAccountClosureRecordAccountSucceededCommand {
                             owned_account_closure_id: id,
                             account_id,
                         },
@@ -446,11 +446,11 @@ mod tests {
                     .await
                     .unwrap();
             } else {
-                OwnedAccountClosureAccountFailedRecordCommandHandler::new(repository.clone())
+                OwnedAccountClosureRecordAccountFailedCommandHandler::new(repository.clone())
                     .handle(
                         &mut TestUow,
                         &request_context(),
-                        &OwnedAccountClosureAccountFailedRecordCommand {
+                        &OwnedAccountClosureRecordAccountFailedCommand {
                             owned_account_closure_id: id,
                             account_id,
                         },

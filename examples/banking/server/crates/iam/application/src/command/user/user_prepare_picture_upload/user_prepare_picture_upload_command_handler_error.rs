@@ -1,0 +1,42 @@
+use appletheia::application::Retryability;
+use appletheia::application::object_storage::{ObjectNameError, ObjectUploadSignerError};
+use appletheia::application::repository::RepositoryError;
+use banking_iam_domain::{User, UserError, UserPictureObjectNameError};
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum UserPreparePictureUploadCommandHandlerError {
+    #[error("user repository failed")]
+    UserRepository(#[from] RepositoryError<User>),
+
+    #[error("user aggregate failed")]
+    User(#[from] UserError),
+
+    #[error("picture object name generation failed")]
+    PictureObjectName(#[from] UserPictureObjectNameError),
+
+    #[error("object storage object name generation failed")]
+    ObjectName(#[from] ObjectNameError),
+
+    #[error("object upload signer failed")]
+    ObjectUploadSigner(#[from] ObjectUploadSignerError),
+
+    #[error("picture content length exceeds the upload limit")]
+    ContentLengthTooLarge,
+
+    #[error("picture content type is not allowed")]
+    ContentTypeNotAllowed,
+}
+
+impl Retryability for UserPreparePictureUploadCommandHandlerError {
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::ContentLengthTooLarge | Self::ContentTypeNotAllowed => false,
+            Self::UserRepository(error) => error.is_retryable(),
+            Self::User(_) => false,
+            Self::PictureObjectName(_) => false,
+            Self::ObjectName(_) => false,
+            Self::ObjectUploadSigner(error) => error.is_retryable(),
+        }
+    }
+}

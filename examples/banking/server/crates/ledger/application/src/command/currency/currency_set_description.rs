@@ -1,0 +1,9 @@
+mod currency_set_description_command;
+mod currency_set_description_command_handler;
+mod currency_set_description_command_handler_error;
+mod currency_set_description_output;
+
+pub use currency_set_description_command::CurrencySetDescriptionCommand;
+pub use currency_set_description_command_handler::CurrencySetDescriptionCommandHandler;
+pub use currency_set_description_command_handler_error::CurrencySetDescriptionCommandHandlerError;
+pub use currency_set_description_output::CurrencySetDescriptionOutput;

@@ -1,0 +1,9 @@
+mod deposit_verify_settlement_command;
+mod deposit_verify_settlement_command_handler;
+mod deposit_verify_settlement_command_handler_error;
+mod deposit_verify_settlement_output;
+
+pub use deposit_verify_settlement_command::DepositVerifySettlementCommand;
+pub use deposit_verify_settlement_command_handler::DepositVerifySettlementCommandHandler;
+pub use deposit_verify_settlement_command_handler_error::DepositVerifySettlementCommandHandlerError;
+pub use deposit_verify_settlement_output::DepositVerifySettlementOutput;

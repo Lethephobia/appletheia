@@ -96,7 +96,7 @@ builder
                         *to_account_id,
                         *amount,
                     ));
-                    ctx.append_command(&AccountFundsReserveCommand {
+                    ctx.append_command(&AccountReserveFundsCommand {
                         account_id: *from_account_id,
                         amount: *amount,
                     })?;
@@ -214,7 +214,7 @@ builder.add_route(
         .on_command_failed::<AccountDepositCommand>(TransferSagaStep::Deposit)
         .handle(|ctx, _command| {
             let state: &TransferSagaState = ctx.state_required()?;
-            let command = AccountReservedFundsReleaseCommand {
+            let command = AccountReleaseReservedFundsCommand {
                 account_id: state.from_account_id,
                 amount: state.amount,
             };

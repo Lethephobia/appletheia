@@ -1,0 +1,9 @@
+mod user_set_display_name_command;
+mod user_set_display_name_command_handler;
+mod user_set_display_name_command_handler_error;
+mod user_set_display_name_output;
+
+pub use user_set_display_name_command::UserSetDisplayNameCommand;
+pub use user_set_display_name_command_handler::UserSetDisplayNameCommandHandler;
+pub use user_set_display_name_command_handler_error::UserSetDisplayNameCommandHandlerError;
+pub use user_set_display_name_output::UserSetDisplayNameOutput;

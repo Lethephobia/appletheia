@@ -1,23 +1,23 @@
 mod token_binding_bind;
-mod token_binding_deposit_enabled_change;
+mod token_binding_change_deposit_enabled;
+mod token_binding_change_withdrawal_enabled;
 mod token_binding_unbind;
-mod token_binding_withdrawal_enabled_change;
 
-pub use token_binding_deposit_enabled_change::{
-    TokenBindingDepositEnabledChangeCommand, TokenBindingDepositEnabledChangeCommandHandler,
-    TokenBindingDepositEnabledChangeCommandHandlerError, TokenBindingDepositEnabledChangeOutput,
+pub use token_binding_change_deposit_enabled::{
+    TokenBindingChangeDepositEnabledCommand, TokenBindingChangeDepositEnabledCommandHandler,
+    TokenBindingChangeDepositEnabledCommandHandlerError, TokenBindingChangeDepositEnabledOutput,
 };
 
 pub use token_binding_bind::{
     TokenBindingBindCommand, TokenBindingBindCommandHandler, TokenBindingBindCommandHandlerError,
     TokenBindingBindOutput,
 };
+pub use token_binding_change_withdrawal_enabled::{
+    TokenBindingChangeWithdrawalEnabledCommand, TokenBindingChangeWithdrawalEnabledCommandHandler,
+    TokenBindingChangeWithdrawalEnabledCommandHandlerError,
+    TokenBindingChangeWithdrawalEnabledOutput,
+};
 pub use token_binding_unbind::{
     TokenBindingUnbindCommand, TokenBindingUnbindCommandHandler,
     TokenBindingUnbindCommandHandlerError, TokenBindingUnbindOutput,
-};
-pub use token_binding_withdrawal_enabled_change::{
-    TokenBindingWithdrawalEnabledChangeCommand, TokenBindingWithdrawalEnabledChangeCommandHandler,
-    TokenBindingWithdrawalEnabledChangeCommandHandlerError,
-    TokenBindingWithdrawalEnabledChangeOutput,
 };

@@ -4,7 +4,7 @@ use appletheia::application::saga::{
 };
 use banking_iam_domain::{Organization, OrganizationEventPayload};
 
-use crate::command::OrganizationPictureObjectDeleteCommand;
+use crate::command::OrganizationDeletePictureObjectCommand;
 
 use super::{
     OrganizationOldPictureObjectDeletionSagaHandlerError,
@@ -53,7 +53,7 @@ impl Saga for OrganizationOldPictureObjectDeletionSaga {
                         return Ok(());
                     };
 
-                    ctx.append_command(&OrganizationPictureObjectDeleteCommand { object_name })
+                    ctx.append_command(&OrganizationDeletePictureObjectCommand { object_name })
                         .map_err(|_| {
                             OrganizationOldPictureObjectDeletionSagaHandlerError::UnexpectedEvent
                         })?;
@@ -152,7 +152,7 @@ mod tests {
                 assert_eq!(command.causation_id, CausationId::from(input.event_id));
                 assert_eq!(
                     command
-                        .try_to_command::<OrganizationPictureObjectDeleteCommand>()
+                        .try_to_command::<OrganizationDeletePictureObjectCommand>()
                         .expect("delete command")
                         .object_name,
                     object_name

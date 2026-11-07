@@ -1,0 +1,9 @@
+mod user_set_username_command;
+mod user_set_username_command_handler;
+mod user_set_username_command_handler_error;
+mod user_set_username_output;
+
+pub use user_set_username_command::UserSetUsernameCommand;
+pub use user_set_username_command_handler::UserSetUsernameCommandHandler;
+pub use user_set_username_command_handler_error::UserSetUsernameCommandHandlerError;
+pub use user_set_username_output::UserSetUsernameOutput;

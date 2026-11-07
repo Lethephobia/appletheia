@@ -66,7 +66,7 @@ return Err(AccountError::InsufficientAvailableBalance);
 
 ```rust
 // Report a failed reservation as a successful result.
-return Ok(AccountFundsReserveResult::Rejected { reason });
+return Ok(AccountReserveFundsResult::Rejected { reason });
 ```
 
 ```rust
@@ -502,7 +502,7 @@ state for financial quantities that require exact replay and comparison.
 **Good**
 
 ```rust
-pub struct AccountFundsReserveCommand {
+pub struct AccountReserveFundsCommand {
     pub account_id: AccountId,
     pub amount: CurrencyAmount,
 }
@@ -511,7 +511,7 @@ pub struct AccountFundsReserveCommand {
 **Bad**
 
 ```rust
-pub struct AccountFundsReserveCommand {
+pub struct AccountReserveFundsCommand {
     pub account_id: AccountId,
     pub amount: f64,
 }

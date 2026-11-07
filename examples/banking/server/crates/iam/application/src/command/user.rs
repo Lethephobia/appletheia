@@ -3,14 +3,14 @@ pub mod logout_all_sessions;
 pub mod oidc_begin;
 pub mod oidc_complete;
 pub mod user_activate;
-pub mod user_bio_set;
 pub mod user_deactivate;
 pub mod user_delete;
-pub mod user_display_name_set;
-pub mod user_picture_object_delete;
-pub mod user_picture_set;
-pub mod user_picture_upload_prepare;
-pub mod user_username_set;
+pub mod user_delete_picture_object;
+pub mod user_prepare_picture_upload;
+pub mod user_set_bio;
+pub mod user_set_display_name;
+pub mod user_set_picture;
+pub mod user_set_username;
 
 pub use logout::{LogoutCommand, LogoutCommandHandler, LogoutOutput};
 pub use logout_all_sessions::{
@@ -23,26 +23,26 @@ pub use oidc_complete::{
     OidcCompleteCommand, OidcCompleteCommandHandler, OidcCompleteOutput, OidcCompleteReplayOutput,
 };
 pub use user_activate::{UserActivateCommand, UserActivateCommandHandler, UserActivateOutput};
-pub use user_bio_set::{UserBioSetCommand, UserBioSetCommandHandler, UserBioSetOutput};
 pub use user_deactivate::{
     UserDeactivateCommand, UserDeactivateCommandHandler, UserDeactivateOutput,
 };
 pub use user_delete::{UserDeleteCommand, UserDeleteCommandHandler, UserDeleteOutput};
-pub use user_display_name_set::{
-    UserDisplayNameSetCommand, UserDisplayNameSetCommandHandler, UserDisplayNameSetOutput,
+pub use user_delete_picture_object::{
+    UserDeletePictureObjectCommand, UserDeletePictureObjectCommandHandler,
+    UserDeletePictureObjectCommandHandlerError, UserDeletePictureObjectOutput,
 };
-pub use user_picture_object_delete::{
-    UserPictureObjectDeleteCommand, UserPictureObjectDeleteCommandHandler,
-    UserPictureObjectDeleteCommandHandlerError, UserPictureObjectDeleteOutput,
+pub use user_prepare_picture_upload::{
+    UserPreparePictureUploadCommand, UserPreparePictureUploadCommandHandler,
+    UserPreparePictureUploadCommandHandlerConfig, UserPreparePictureUploadCommandHandlerError,
+    UserPreparePictureUploadOutput,
 };
-pub use user_picture_set::{
-    UserPictureSetCommand, UserPictureSetCommandHandler, UserPictureSetOutput,
+pub use user_set_bio::{UserSetBioCommand, UserSetBioCommandHandler, UserSetBioOutput};
+pub use user_set_display_name::{
+    UserSetDisplayNameCommand, UserSetDisplayNameCommandHandler, UserSetDisplayNameOutput,
 };
-pub use user_picture_upload_prepare::{
-    UserPictureUploadPrepareCommand, UserPictureUploadPrepareCommandHandler,
-    UserPictureUploadPrepareCommandHandlerConfig, UserPictureUploadPrepareCommandHandlerError,
-    UserPictureUploadPrepareOutput,
+pub use user_set_picture::{
+    UserSetPictureCommand, UserSetPictureCommandHandler, UserSetPictureOutput,
 };
-pub use user_username_set::{
-    UserUsernameSetCommand, UserUsernameSetCommandHandler, UserUsernameSetOutput,
+pub use user_set_username::{
+    UserSetUsernameCommand, UserSetUsernameCommandHandler, UserSetUsernameOutput,
 };

@@ -367,13 +367,13 @@ Keep the reusable crates generic and let downstream applications own business-sp
 
 ```text
 Library: Repository<A>
-Banking application: AccountFundsReserveCommandHandler
+Banking application: AccountReserveFundsCommandHandler
 ```
 
 **Bad**
 
 ```text
-Library: BankingAccountFundsReserveCommandHandler
+Library: BankingAccountReserveFundsCommandHandler
 ```
 
 ### DON'T mix unrelated concerns into a shared utility module

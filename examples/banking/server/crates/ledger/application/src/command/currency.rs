@@ -1,7 +1,7 @@
 mod currency_activate;
 mod currency_deactivate;
 mod currency_define;
-mod currency_description_set;
+mod currency_set_description;
 
 pub use currency_activate::{
     CurrencyActivateCommand, CurrencyActivateCommandHandler, CurrencyActivateCommandHandlerError,
@@ -15,7 +15,7 @@ pub use currency_define::{
     CurrencyDefineCommand, CurrencyDefineCommandHandler, CurrencyDefineCommandHandlerError,
     CurrencyDefineOutput,
 };
-pub use currency_description_set::{
-    CurrencyDescriptionSetCommand, CurrencyDescriptionSetCommandHandler,
-    CurrencyDescriptionSetCommandHandlerError, CurrencyDescriptionSetOutput,
+pub use currency_set_description::{
+    CurrencySetDescriptionCommand, CurrencySetDescriptionCommandHandler,
+    CurrencySetDescriptionCommandHandlerError, CurrencySetDescriptionOutput,
 };

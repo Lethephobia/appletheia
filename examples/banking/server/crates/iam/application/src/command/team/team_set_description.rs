@@ -1,0 +1,9 @@
+mod team_set_description_command;
+mod team_set_description_command_handler;
+mod team_set_description_command_handler_error;
+mod team_set_description_output;
+
+pub use team_set_description_command::TeamSetDescriptionCommand;
+pub use team_set_description_command_handler::TeamSetDescriptionCommandHandler;
+pub use team_set_description_command_handler_error::TeamSetDescriptionCommandHandlerError;
+pub use team_set_description_output::TeamSetDescriptionOutput;

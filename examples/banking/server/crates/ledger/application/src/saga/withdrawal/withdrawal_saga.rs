@@ -9,11 +9,11 @@ use banking_ledger_domain::withdrawal::{
 
 use super::{WithdrawalSagaHandlerError, WithdrawalSagaState, WithdrawalSagaStep};
 use crate::command::{
-    AccountFundsReserveCommand, AccountReservedFundsCommitCommand,
-    AccountReservedFundsReleaseCommand,
+    AccountCommitReservedFundsCommand, AccountReleaseReservedFundsCommand,
+    AccountReserveFundsCommand,
 };
 use crate::command::{
-    WithdrawalFailCommand, WithdrawalSettlementExecuteCommand, WithdrawalSucceedCommand,
+    WithdrawalExecuteSettlementCommand, WithdrawalFailCommand, WithdrawalSucceedCommand,
 };
 
 /// Coordinates the withdrawal flow.
@@ -43,7 +43,7 @@ impl Saga for WithdrawalSaga {
                             *account_id,
                             *amount,
                         ));
-                        ctx.append_command(&AccountFundsReserveCommand {
+                        ctx.append_command(&AccountReserveFundsCommand {
                             account_id: *account_id,
                             amount: *amount,
                         })?;
@@ -59,7 +59,7 @@ impl Saga for WithdrawalSaga {
                     let state: &mut WithdrawalSagaState = ctx.state_required_mut()?;
                     let account_id = state.account_id;
                     let amount = state.amount;
-                    ctx.append_command(&AccountReservedFundsCommitCommand { account_id, amount })?;
+                    ctx.append_command(&AccountCommitReservedFundsCommand { account_id, amount })?;
                     Ok(())
                 }),
         )
@@ -70,7 +70,7 @@ impl Saga for WithdrawalSaga {
                 .handle(|ctx, _account_event| {
                     let state: &mut WithdrawalSagaState = ctx.state_required_mut()?;
                     let withdrawal_id = state.withdrawal_id;
-                    ctx.append_command(&WithdrawalSettlementExecuteCommand { withdrawal_id })?;
+                    ctx.append_command(&WithdrawalExecuteSettlementCommand { withdrawal_id })?;
                     Ok(())
                 }),
         )
@@ -101,7 +101,7 @@ impl Saga for WithdrawalSaga {
         )
         .add_route(
             SagaRouteBuilder::new(WithdrawalSagaStep::Fail)
-                .on_command_failed::<AccountFundsReserveCommand>(WithdrawalSagaStep::ReserveFunds)
+                .on_command_failed::<AccountReserveFundsCommand>(WithdrawalSagaStep::ReserveFunds)
                 .handle(|ctx, _command| {
                     self.append_fail_after_failure(
                         ctx,
@@ -112,20 +112,20 @@ impl Saga for WithdrawalSaga {
         )
         .add_route(
             SagaRouteBuilder::new(WithdrawalSagaStep::ReleaseFunds)
-                .on_command_failed::<WithdrawalSettlementExecuteCommand>(
+                .on_command_failed::<WithdrawalExecuteSettlementCommand>(
                     WithdrawalSagaStep::ExecuteSettlement,
                 )
                 .handle(|ctx, _command| {
                     let state: &mut WithdrawalSagaState = ctx.state_required_mut()?;
                     let account_id = state.account_id;
                     let amount = state.amount;
-                    ctx.append_command(&AccountReservedFundsReleaseCommand { account_id, amount })?;
+                    ctx.append_command(&AccountReleaseReservedFundsCommand { account_id, amount })?;
                     Ok(())
                 }),
         )
         .add_route(
             SagaRouteBuilder::new(WithdrawalSagaStep::Fail)
-                .on_command_failed::<AccountReservedFundsReleaseCommand>(
+                .on_command_failed::<AccountReleaseReservedFundsCommand>(
                     WithdrawalSagaStep::ReleaseFunds,
                 )
                 .handle(|ctx, _command| {
@@ -138,7 +138,7 @@ impl Saga for WithdrawalSaga {
         )
         .add_route(
             SagaRouteBuilder::new(WithdrawalSagaStep::Fail)
-                .on_command_failed::<AccountReservedFundsCommitCommand>(
+                .on_command_failed::<AccountCommitReservedFundsCommand>(
                     WithdrawalSagaStep::CommitFunds,
                 )
                 .handle(|ctx, _command| {

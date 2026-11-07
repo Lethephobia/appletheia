@@ -13,7 +13,7 @@ current values through the repository instead of asking callers to repeat them.
 **Good**
 
 ```rust
-pub struct AccountFundsReserveCommand {
+pub struct AccountReserveFundsCommand {
     pub account_id: AccountId,
     pub amount: CurrencyAmount,
 }
@@ -22,7 +22,7 @@ pub struct AccountFundsReserveCommand {
 **Bad**
 
 ```rust
-pub struct AccountFundsReserveCommand {
+pub struct AccountReserveFundsCommand {
     pub account_id: AccountId,
     pub amount: CurrencyAmount,
     pub saga_step: TransferSagaStep,
@@ -39,7 +39,7 @@ the handler's typed error, not in an `Output::Rejected` branch.
 
 ```rust
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct AccountFundsReserveOutput {}
+pub struct AccountReserveFundsOutput {}
 ```
 
 Use an empty named-field struct for an acknowledgement so JSON serialization produces `{}` rather
@@ -53,7 +53,7 @@ Use an enum when success genuinely has distinct shapes, as with Banking's `OidcC
 **Bad**
 
 ```rust
-pub enum AccountFundsReserveOutput {
+pub enum AccountReserveFundsOutput {
     Reserved,
 }
 ```
@@ -169,7 +169,7 @@ failures by whether repeating the same command can help. Return failures as `Err
 
 ```rust
 #[derive(Debug, Error)]
-pub enum AccountFundsReserveCommandHandlerError {
+pub enum AccountReserveFundsCommandHandlerError {
     #[error(transparent)]
     AccountRepository(#[from] RepositoryError<Account>),
 
@@ -177,7 +177,7 @@ pub enum AccountFundsReserveCommandHandlerError {
     Account(#[from] AccountError),
 }
 
-impl Retryability for AccountFundsReserveCommandHandlerError {
+impl Retryability for AccountReserveFundsCommandHandlerError {
     fn is_retryable(&self) -> bool {
         match self {
             Self::AccountRepository(error) => error.is_retryable(),
@@ -194,7 +194,7 @@ database, network, or service availability errors may be retryable.
 **Bad**
 
 ```rust
-impl Retryability for AccountFundsReserveCommandHandlerError {
+impl Retryability for AccountReserveFundsCommandHandlerError {
     fn is_retryable(&self) -> bool {
         true
     }
@@ -250,7 +250,7 @@ tokio::spawn(async move {
 
 let reserve_worker = Arc::clone(&worker);
 tokio::spawn(async move {
-    reserve_worker.run_forever(&account_funds_reserve_handler).await
+    reserve_worker.run_forever(&account_reserve_funds_handler).await
 });
 ```
 

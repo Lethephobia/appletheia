@@ -1,7 +1,7 @@
 use super::{TransferSagaHandlerError, TransferSagaState, TransferSagaStep};
 use crate::command::{
-    AccountDepositCommand, AccountFundsReserveCommand, AccountReservedFundsCommitCommand,
-    AccountReservedFundsReleaseCommand, AccountWithdrawCommand,
+    AccountCommitReservedFundsCommand, AccountDepositCommand, AccountReleaseReservedFundsCommand,
+    AccountReserveFundsCommand, AccountWithdrawCommand,
 };
 use crate::command::{TransferFailCommand, TransferSucceedCommand};
 use appletheia::application::saga::SagaError;
@@ -43,7 +43,7 @@ impl Saga for TransferSaga {
                             *amount,
                         ));
 
-                        ctx.append_command(&AccountFundsReserveCommand {
+                        ctx.append_command(&AccountReserveFundsCommand {
                             account_id: *from_account_id,
                             amount: *amount,
                         })?;
@@ -76,7 +76,7 @@ impl Saga for TransferSaga {
                     let from_account_id = state.from_account_id;
                     let amount = state.amount;
 
-                    ctx.append_command(&AccountReservedFundsCommitCommand {
+                    ctx.append_command(&AccountCommitReservedFundsCommand {
                         account_id: from_account_id,
                         amount,
                     })?;
@@ -127,7 +127,7 @@ impl Saga for TransferSaga {
         )
         .add_route(
             SagaRouteBuilder::new(TransferSagaStep::Fail)
-                .on_command_failed::<AccountFundsReserveCommand>(TransferSagaStep::ReserveFunds)
+                .on_command_failed::<AccountReserveFundsCommand>(TransferSagaStep::ReserveFunds)
                 .handle(|ctx, _command| {
                     let state: &mut TransferSagaState = ctx.state_required_mut()?;
                     let transfer_id = state.transfer_id;
@@ -145,7 +145,7 @@ impl Saga for TransferSaga {
                     let state: &mut TransferSagaState = ctx.state_required_mut()?;
                     let from_account_id = state.from_account_id;
                     let amount = state.amount;
-                    ctx.append_command(&AccountReservedFundsReleaseCommand {
+                    ctx.append_command(&AccountReleaseReservedFundsCommand {
                         account_id: from_account_id,
                         amount,
                     })?;
@@ -154,7 +154,7 @@ impl Saga for TransferSaga {
         )
         .add_route(
             SagaRouteBuilder::new(TransferSagaStep::Fail)
-                .on_command_failed::<AccountReservedFundsReleaseCommand>(
+                .on_command_failed::<AccountReleaseReservedFundsCommand>(
                     TransferSagaStep::ReleaseFunds,
                 )
                 .handle(|ctx, _command| {
@@ -169,7 +169,7 @@ impl Saga for TransferSaga {
         )
         .add_route(
             SagaRouteBuilder::new(TransferSagaStep::CompensateDeposit)
-                .on_command_failed::<AccountReservedFundsCommitCommand>(
+                .on_command_failed::<AccountCommitReservedFundsCommand>(
                     TransferSagaStep::CommitFunds,
                 )
                 .handle(|ctx, _command| {
@@ -229,8 +229,8 @@ mod tests {
 
     use super::{TransferSaga, TransferSagaState, TransferSagaStep};
     use crate::command::{
-        AccountDepositCommand, AccountFundsReserveCommand, AccountReservedFundsCommitCommand,
-        AccountReservedFundsReleaseCommand, AccountWithdrawCommand,
+        AccountCommitReservedFundsCommand, AccountDepositCommand,
+        AccountReleaseReservedFundsCommand, AccountReserveFundsCommand, AccountWithdrawCommand,
     };
     use crate::command::{TransferFailCommand, TransferSucceedCommand};
 
@@ -370,7 +370,7 @@ mod tests {
     }
 
     #[test]
-    fn transfer_requested_with_note_appends_account_funds_reserve_command() {
+    fn transfer_requested_with_note_appends_account_reserve_funds_command() {
         let saga = TransferSaga;
         let correlation_id = CorrelationId::from(Uuid::now_v7());
         let from_account_id = AccountId::new();
@@ -417,11 +417,11 @@ mod tests {
         );
         assert!(instance.dispatched_commands.is_empty());
         let command = instance.uncommitted_commands()[0]
-            .try_to_command::<AccountFundsReserveCommand>()
+            .try_to_command::<AccountReserveFundsCommand>()
             .expect("command should deserialize");
         assert_eq!(
             command,
-            AccountFundsReserveCommand {
+            AccountReserveFundsCommand {
                 account_id: from_account_id,
                 amount,
             }
@@ -463,11 +463,11 @@ mod tests {
         )
         .expect("requested should succeed");
         let reserve = instance.uncommitted_commands()[0]
-            .try_to_command::<AccountFundsReserveCommand>()
+            .try_to_command::<AccountReserveFundsCommand>()
             .expect("command should deserialize");
         assert_eq!(
             reserve,
-            AccountFundsReserveCommand {
+            AccountReserveFundsCommand {
                 account_id: from_account_id,
                 amount,
             }
@@ -509,11 +509,11 @@ mod tests {
         )
         .expect("deposited should succeed");
         let commit = instance.uncommitted_commands()[0]
-            .try_to_command::<AccountReservedFundsCommitCommand>()
+            .try_to_command::<AccountCommitReservedFundsCommand>()
             .expect("command should deserialize");
         assert_eq!(
             commit,
-            AccountReservedFundsCommitCommand {
+            AccountCommitReservedFundsCommand {
                 account_id: from_account_id,
                 amount,
             }
@@ -636,11 +636,11 @@ mod tests {
             .expect("deposit failure should succeed");
 
         let release = instance.uncommitted_commands()[0]
-            .try_to_command::<AccountReservedFundsReleaseCommand>()
+            .try_to_command::<AccountReleaseReservedFundsCommand>()
             .expect("command should deserialize");
         assert_eq!(
             release,
-            AccountReservedFundsReleaseCommand {
+            AccountReleaseReservedFundsCommand {
                 account_id: from_account_id,
                 amount,
             }
@@ -676,7 +676,7 @@ mod tests {
         let failure = command_failure(
             &instance,
             TransferSagaStep::ReserveFunds,
-            &AccountFundsReserveCommand {
+            &AccountReserveFundsCommand {
                 account_id: from_account_id,
                 amount,
             },
@@ -730,7 +730,7 @@ mod tests {
         let failure = command_failure(
             &instance,
             TransferSagaStep::ReleaseFunds,
-            &AccountReservedFundsReleaseCommand {
+            &AccountReleaseReservedFundsCommand {
                 account_id: from_account_id,
                 amount,
             },
@@ -784,7 +784,7 @@ mod tests {
         let failure = command_failure(
             &instance,
             TransferSagaStep::CommitFunds,
-            &AccountReservedFundsCommitCommand {
+            &AccountCommitReservedFundsCommand {
                 account_id: from_account_id,
                 amount,
             },

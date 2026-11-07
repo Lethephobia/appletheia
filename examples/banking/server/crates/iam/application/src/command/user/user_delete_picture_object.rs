@@ -1,0 +1,9 @@
+mod user_delete_picture_object_command;
+mod user_delete_picture_object_command_handler;
+mod user_delete_picture_object_command_handler_error;
+mod user_delete_picture_object_output;
+
+pub use user_delete_picture_object_command::UserDeletePictureObjectCommand;
+pub use user_delete_picture_object_command_handler::UserDeletePictureObjectCommandHandler;
+pub use user_delete_picture_object_command_handler_error::UserDeletePictureObjectCommandHandlerError;
+pub use user_delete_picture_object_output::UserDeletePictureObjectOutput;

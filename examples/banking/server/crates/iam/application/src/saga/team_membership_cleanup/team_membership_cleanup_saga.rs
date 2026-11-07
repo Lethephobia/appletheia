@@ -12,8 +12,8 @@ use super::{
     TeamMembershipCleanupSagaStep,
 };
 use crate::command::{
-    TeamMembershipCleanupMembershipFailedRecordCommand,
-    TeamMembershipCleanupMembershipSucceededRecordCommand, TeamMembershipCleanupScanCommand,
+    TeamMembershipCleanupRecordMembershipFailedCommand,
+    TeamMembershipCleanupRecordMembershipSucceededCommand, TeamMembershipCleanupScanCommand,
     TeamMembershipCleanupStartCommand, TeamMembershipDeleteCommand,
 };
 
@@ -86,7 +86,7 @@ impl Saga for TeamMembershipCleanupSaga {
                 .handle(|ctx, event| {
                     let state: &TeamMembershipCleanupSagaState = ctx.state_required()?;
                     let team_membership_cleanup_id = state.team_membership_cleanup_id;
-                    ctx.append_command(&TeamMembershipCleanupMembershipSucceededRecordCommand {
+                    ctx.append_command(&TeamMembershipCleanupRecordMembershipSucceededCommand {
                         team_membership_cleanup_id,
                         team_membership_id: event.aggregate_id(),
                     })?;
@@ -101,7 +101,7 @@ impl Saga for TeamMembershipCleanupSaga {
                 .handle(|ctx, command| {
                     let state: &TeamMembershipCleanupSagaState = ctx.state_required()?;
                     let team_membership_cleanup_id = state.team_membership_cleanup_id;
-                    ctx.append_command(&TeamMembershipCleanupMembershipFailedRecordCommand {
+                    ctx.append_command(&TeamMembershipCleanupRecordMembershipFailedCommand {
                         team_membership_cleanup_id,
                         team_membership_id: command.team_membership_id,
                     })?;
@@ -144,8 +144,8 @@ mod tests {
         TeamMembershipCleanupSaga, TeamMembershipCleanupSagaState, TeamMembershipCleanupSagaStep,
     };
     use crate::command::{
-        TeamMembershipCleanupMembershipFailedRecordCommand,
-        TeamMembershipCleanupMembershipSucceededRecordCommand, TeamMembershipCleanupScanCommand,
+        TeamMembershipCleanupRecordMembershipFailedCommand,
+        TeamMembershipCleanupRecordMembershipSucceededCommand, TeamMembershipCleanupScanCommand,
         TeamMembershipCleanupStartCommand, TeamMembershipDeleteCommand,
     };
 
@@ -374,7 +374,7 @@ mod tests {
         )
         .unwrap();
         let command = instance.uncommitted_commands()[0]
-            .try_to_command::<TeamMembershipCleanupMembershipSucceededRecordCommand>()
+            .try_to_command::<TeamMembershipCleanupRecordMembershipSucceededCommand>()
             .unwrap();
         assert_eq!(command.team_membership_id, team_membership_id);
         assert_eq!(command.team_membership_cleanup_id, cleanup_id);
@@ -428,7 +428,7 @@ mod tests {
         let mut context = SagaContext::new(&mut instance, failure.causation_id, *step);
         handler(&mut context, &failure).unwrap();
         let record = instance.uncommitted_commands()[0]
-            .try_to_command::<TeamMembershipCleanupMembershipFailedRecordCommand>()
+            .try_to_command::<TeamMembershipCleanupRecordMembershipFailedCommand>()
             .unwrap();
         assert_eq!(record.team_membership_id, team_membership_id);
         assert_eq!(record.team_membership_cleanup_id, cleanup_id);

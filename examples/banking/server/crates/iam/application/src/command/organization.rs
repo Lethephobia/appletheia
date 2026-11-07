@@ -1,50 +1,50 @@
+pub mod organization_change_display_name;
+pub mod organization_change_handle;
 pub mod organization_create;
 pub mod organization_delete;
-pub mod organization_description_set;
-pub mod organization_display_name_change;
-pub mod organization_handle_change;
-pub mod organization_ownership_transfer;
-pub mod organization_picture_object_delete;
-pub mod organization_picture_set;
-pub mod organization_picture_upload_prepare;
-pub mod organization_website_url_set;
+pub mod organization_delete_picture_object;
+pub mod organization_prepare_picture_upload;
+pub mod organization_set_description;
+pub mod organization_set_picture;
+pub mod organization_set_website_url;
+pub mod organization_transfer_ownership;
 
+pub use organization_change_display_name::{
+    OrganizationChangeDisplayNameCommand, OrganizationChangeDisplayNameCommandHandler,
+    OrganizationChangeDisplayNameOutput,
+};
+pub use organization_change_handle::{
+    OrganizationChangeHandleCommand, OrganizationChangeHandleCommandHandler,
+    OrganizationChangeHandleOutput,
+};
 pub use organization_create::{
     OrganizationCreateCommand, OrganizationCreateCommandHandler, OrganizationCreateOutput,
 };
 pub use organization_delete::{
     OrganizationDeleteCommand, OrganizationDeleteCommandHandler, OrganizationDeleteOutput,
 };
-pub use organization_description_set::{
-    OrganizationDescriptionSetCommand, OrganizationDescriptionSetCommandHandler,
-    OrganizationDescriptionSetOutput,
+pub use organization_delete_picture_object::{
+    OrganizationDeletePictureObjectCommand, OrganizationDeletePictureObjectCommandHandler,
+    OrganizationDeletePictureObjectCommandHandlerError, OrganizationDeletePictureObjectOutput,
 };
-pub use organization_display_name_change::{
-    OrganizationDisplayNameChangeCommand, OrganizationDisplayNameChangeCommandHandler,
-    OrganizationDisplayNameChangeOutput,
+pub use organization_prepare_picture_upload::{
+    OrganizationPreparePictureUploadCommand, OrganizationPreparePictureUploadCommandHandler,
+    OrganizationPreparePictureUploadCommandHandlerConfig,
+    OrganizationPreparePictureUploadCommandHandlerError, OrganizationPreparePictureUploadOutput,
 };
-pub use organization_handle_change::{
-    OrganizationHandleChangeCommand, OrganizationHandleChangeCommandHandler,
-    OrganizationHandleChangeOutput,
+pub use organization_set_description::{
+    OrganizationSetDescriptionCommand, OrganizationSetDescriptionCommandHandler,
+    OrganizationSetDescriptionOutput,
 };
-pub use organization_ownership_transfer::{
-    OrganizationOwnershipTransferCommand, OrganizationOwnershipTransferCommandHandler,
-    OrganizationOwnershipTransferOutput,
+pub use organization_set_picture::{
+    OrganizationSetPictureCommand, OrganizationSetPictureCommandHandler,
+    OrganizationSetPictureOutput,
 };
-pub use organization_picture_object_delete::{
-    OrganizationPictureObjectDeleteCommand, OrganizationPictureObjectDeleteCommandHandler,
-    OrganizationPictureObjectDeleteCommandHandlerError, OrganizationPictureObjectDeleteOutput,
+pub use organization_set_website_url::{
+    OrganizationSetWebsiteUrlCommand, OrganizationSetWebsiteUrlCommandHandler,
+    OrganizationSetWebsiteUrlOutput,
 };
-pub use organization_picture_set::{
-    OrganizationPictureSetCommand, OrganizationPictureSetCommandHandler,
-    OrganizationPictureSetOutput,
-};
-pub use organization_picture_upload_prepare::{
-    OrganizationPictureUploadPrepareCommand, OrganizationPictureUploadPrepareCommandHandler,
-    OrganizationPictureUploadPrepareCommandHandlerConfig,
-    OrganizationPictureUploadPrepareCommandHandlerError, OrganizationPictureUploadPrepareOutput,
-};
-pub use organization_website_url_set::{
-    OrganizationWebsiteUrlSetCommand, OrganizationWebsiteUrlSetCommandHandler,
-    OrganizationWebsiteUrlSetOutput,
+pub use organization_transfer_ownership::{
+    OrganizationTransferOwnershipCommand, OrganizationTransferOwnershipCommandHandler,
+    OrganizationTransferOwnershipOutput,
 };

@@ -115,10 +115,10 @@ where
 mod tests {
     use super::*;
     use crate::command::{
-        TeamMembershipCleanupMembershipFailedRecordCommand,
-        TeamMembershipCleanupMembershipFailedRecordCommandHandler,
-        TeamMembershipCleanupMembershipSucceededRecordCommand,
-        TeamMembershipCleanupMembershipSucceededRecordCommandHandler,
+        TeamMembershipCleanupRecordMembershipFailedCommand,
+        TeamMembershipCleanupRecordMembershipFailedCommandHandler,
+        TeamMembershipCleanupRecordMembershipSucceededCommand,
+        TeamMembershipCleanupRecordMembershipSucceededCommandHandler,
     };
     use appletheia::application::aggregate::SerializedAggregate;
     use appletheia::application::repository::ReferenceIndexLookupPageSize;
@@ -417,13 +417,13 @@ mod tests {
                 cleanup.aggregate_id()
             };
             if success {
-                TeamMembershipCleanupMembershipSucceededRecordCommandHandler::new(
+                TeamMembershipCleanupRecordMembershipSucceededCommandHandler::new(
                     repository.clone(),
                 )
                 .handle(
                     &mut TestUow,
                     &request_context(),
-                    &TeamMembershipCleanupMembershipSucceededRecordCommand {
+                    &TeamMembershipCleanupRecordMembershipSucceededCommand {
                         team_membership_cleanup_id: id,
                         team_membership_id,
                     },
@@ -431,11 +431,11 @@ mod tests {
                 .await
                 .unwrap();
             } else {
-                TeamMembershipCleanupMembershipFailedRecordCommandHandler::new(repository.clone())
+                TeamMembershipCleanupRecordMembershipFailedCommandHandler::new(repository.clone())
                     .handle(
                         &mut TestUow,
                         &request_context(),
-                        &TeamMembershipCleanupMembershipFailedRecordCommand {
+                        &TeamMembershipCleanupRecordMembershipFailedCommand {
                             team_membership_cleanup_id: id,
                             team_membership_id,
                         },

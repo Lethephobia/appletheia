@@ -1,22 +1,22 @@
+mod currency_registrar_change_display_name;
+mod currency_registrar_change_handle;
 mod currency_registrar_create;
-mod currency_registrar_description_set;
-mod currency_registrar_display_name_change;
-mod currency_registrar_handle_change;
+mod currency_registrar_set_description;
 
+pub use currency_registrar_change_display_name::{
+    CurrencyRegistrarChangeDisplayNameCommand, CurrencyRegistrarChangeDisplayNameCommandHandler,
+    CurrencyRegistrarChangeDisplayNameCommandHandlerError,
+    CurrencyRegistrarChangeDisplayNameOutput,
+};
+pub use currency_registrar_change_handle::{
+    CurrencyRegistrarChangeHandleCommand, CurrencyRegistrarChangeHandleCommandHandler,
+    CurrencyRegistrarChangeHandleCommandHandlerError, CurrencyRegistrarChangeHandleOutput,
+};
 pub use currency_registrar_create::{
     CurrencyRegistrarCreateCommand, CurrencyRegistrarCreateCommandHandler,
     CurrencyRegistrarCreateCommandHandlerError, CurrencyRegistrarCreateOutput,
 };
-pub use currency_registrar_description_set::{
-    CurrencyRegistrarDescriptionSetCommand, CurrencyRegistrarDescriptionSetCommandHandler,
-    CurrencyRegistrarDescriptionSetCommandHandlerError, CurrencyRegistrarDescriptionSetOutput,
-};
-pub use currency_registrar_display_name_change::{
-    CurrencyRegistrarDisplayNameChangeCommand, CurrencyRegistrarDisplayNameChangeCommandHandler,
-    CurrencyRegistrarDisplayNameChangeCommandHandlerError,
-    CurrencyRegistrarDisplayNameChangeOutput,
-};
-pub use currency_registrar_handle_change::{
-    CurrencyRegistrarHandleChangeCommand, CurrencyRegistrarHandleChangeCommandHandler,
-    CurrencyRegistrarHandleChangeCommandHandlerError, CurrencyRegistrarHandleChangeOutput,
+pub use currency_registrar_set_description::{
+    CurrencyRegistrarSetDescriptionCommand, CurrencyRegistrarSetDescriptionCommandHandler,
+    CurrencyRegistrarSetDescriptionCommandHandlerError, CurrencyRegistrarSetDescriptionOutput,
 };

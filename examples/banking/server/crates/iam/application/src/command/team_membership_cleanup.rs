@@ -1,19 +1,19 @@
-mod team_membership_cleanup_membership_failed_record;
-mod team_membership_cleanup_membership_succeeded_record;
+mod team_membership_cleanup_record_membership_failed;
+mod team_membership_cleanup_record_membership_succeeded;
 mod team_membership_cleanup_scan;
 mod team_membership_cleanup_start;
 
-pub use team_membership_cleanup_membership_failed_record::{
-    TeamMembershipCleanupMembershipFailedRecordCommand,
-    TeamMembershipCleanupMembershipFailedRecordCommandHandler,
-    TeamMembershipCleanupMembershipFailedRecordCommandHandlerError,
-    TeamMembershipCleanupMembershipFailedRecordOutput,
+pub use team_membership_cleanup_record_membership_failed::{
+    TeamMembershipCleanupRecordMembershipFailedCommand,
+    TeamMembershipCleanupRecordMembershipFailedCommandHandler,
+    TeamMembershipCleanupRecordMembershipFailedCommandHandlerError,
+    TeamMembershipCleanupRecordMembershipFailedOutput,
 };
-pub use team_membership_cleanup_membership_succeeded_record::{
-    TeamMembershipCleanupMembershipSucceededRecordCommand,
-    TeamMembershipCleanupMembershipSucceededRecordCommandHandler,
-    TeamMembershipCleanupMembershipSucceededRecordCommandHandlerError,
-    TeamMembershipCleanupMembershipSucceededRecordOutput,
+pub use team_membership_cleanup_record_membership_succeeded::{
+    TeamMembershipCleanupRecordMembershipSucceededCommand,
+    TeamMembershipCleanupRecordMembershipSucceededCommandHandler,
+    TeamMembershipCleanupRecordMembershipSucceededCommandHandlerError,
+    TeamMembershipCleanupRecordMembershipSucceededOutput,
 };
 pub use team_membership_cleanup_scan::{
     TeamMembershipCleanupScanCommand, TeamMembershipCleanupScanCommandHandler,
