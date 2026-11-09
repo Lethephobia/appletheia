@@ -2,6 +2,34 @@
 
 Use this reference for command data, application boundaries, and transactional execution.
 
+### DO name and group Banking commands by the operation they represent
+
+Keep operations associated with a specific aggregate in its command module. Use the aggregate
+name, followed by a verb, an object when needed, and the `Command` suffix. This includes preparing
+a profile picture upload for a user or organization, even though preparation does not update the
+aggregate.
+
+Group independent operations such as authentication in their own command module. Start the type
+name with the operation's verb and omit the aggregate prefix. For both kinds of commands, form
+the identifier by dropping `Command` and converting the rest to `snake_case` in the same word order.
+
+**Good**
+
+```text
+command::account::AccountReserveFundsCommand             → account_reserve_funds
+command::user::UserPreparePictureUploadCommand           → user_prepare_picture_upload
+command::authentication::BeginOidcFlowCommand            → begin_oidc_flow
+command::authentication::LogoutCommand                   → logout
+```
+
+**Bad**
+
+```text
+command::account::ReserveAccountFundsCommand             → reserve_account_funds
+command::user::UserBeginOidcFlowCommand                  → user_begin_oidc_flow
+command::authentication::BeginOidcFlowCommand            → oidc_begin
+```
+
 ### DO keep delivery metadata in the command envelope
 
 Command fields express the requested business operation. `CommandEnvelope` and `SagaCommandOrigin`
