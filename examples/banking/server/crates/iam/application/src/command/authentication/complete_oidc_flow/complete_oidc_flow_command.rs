@@ -3,9 +3,9 @@ use appletheia::command;
 use serde::{Deserialize, Serialize};
 
 /// Completes an OIDC authorization flow for a user.
-#[command(name = "oidc_complete")]
+#[command(name = "complete_oidc_flow")]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OidcCompleteCommand {
+pub struct CompleteOidcFlowCommand {
     pub state: OidcState,
     pub authorization_code: OidcAuthorizationCode,
 }

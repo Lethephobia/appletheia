@@ -12,7 +12,7 @@ use banking_shared_kernel_domain::contact::EmailError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum OidcCompleteCommandHandlerError {
+pub enum CompleteOidcFlowCommandHandlerError {
     #[error("oidc login flow failed")]
     OidcLoginFlow(#[from] OidcLoginFlowError),
 
@@ -50,7 +50,7 @@ pub enum OidcCompleteCommandHandlerError {
     AuthTokenExchangeCodeIssuer(#[from] AuthTokenExchangeCodeIssuerError),
 }
 
-impl Retryability for OidcCompleteCommandHandlerError {
+impl Retryability for CompleteOidcFlowCommandHandlerError {
     fn is_retryable(&self) -> bool {
         match self {
             Self::OidcLoginFlow(error) => error.is_retryable(),

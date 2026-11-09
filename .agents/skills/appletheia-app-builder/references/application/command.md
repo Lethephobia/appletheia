@@ -47,7 +47,7 @@ than `null`. Put returned identifiers or values directly in public struct fields
 `OrganizationCreateOutput { organization_id }`; avoid a single success enum variant that adds no distinction.
 Implement `CommandOutput` and its replay representation consistently with neighboring outputs.
 
-Use an enum when success genuinely has distinct shapes, as with Banking's `OidcCompleteOutput`
+Use an enum when success genuinely has distinct shapes, as with Banking's `CompleteOidcFlowOutput`
 (token, exchange code, or identity linkage). Replay safety is a separate concern, described below.
 
 **Bad**
@@ -68,8 +68,8 @@ contains tokens, exchange codes, or other credentials that must not be persisted
 **Good**
 
 ```rust
-impl CommandOutput for OidcCompleteOutput {
-    type ReplayOutput = OidcCompleteReplayOutput;
+impl CommandOutput for CompleteOidcFlowOutput {
+    type ReplayOutput = CompleteOidcFlowReplayOutput;
 
     fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
         CommandReplayOutput::Owned(self.replay_safe_output())
@@ -81,7 +81,7 @@ impl CommandOutput for OidcCompleteOutput {
 
 ```rust
 // Persists credentials from the immediate OIDC response.
-impl CommandOutput for OidcCompleteOutput {
+impl CommandOutput for CompleteOidcFlowOutput {
     type ReplayOutput = Self;
 
     fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {

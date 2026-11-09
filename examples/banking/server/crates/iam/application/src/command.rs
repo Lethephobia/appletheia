@@ -1,3 +1,4 @@
+pub mod authentication;
 pub mod organization;
 pub mod organization_invitation;
 pub mod organization_join_request;
@@ -9,6 +10,13 @@ pub mod team_membership_cleanup;
 pub mod team_role_assignment;
 pub mod user;
 
+pub use authentication::{
+    BeginOidcFlowCommand, BeginOidcFlowCommandHandler, BeginOidcFlowCommandHandlerConfig,
+    BeginOidcFlowOutput, CompleteOidcFlowCommand, CompleteOidcFlowCommandHandler,
+    CompleteOidcFlowOutput, CompleteOidcFlowReplayOutput, LogoutAllSessionsCommand,
+    LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput, LogoutCommand, LogoutCommandHandler,
+    LogoutOutput,
+};
 pub use organization::{
     OrganizationChangeDisplayNameCommand, OrganizationChangeDisplayNameCommandHandler,
     OrganizationChangeDisplayNameOutput, OrganizationChangeHandleCommand,
@@ -68,11 +76,7 @@ pub use team_membership::{
     TeamMembershipDeleteCommandHandlerError, TeamMembershipDeleteOutput,
 };
 pub use user::{
-    LogoutAllSessionsCommand, LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput,
-    LogoutCommand, LogoutCommandHandler, LogoutOutput, OidcBeginCommand, OidcBeginCommandHandler,
-    OidcBeginCommandHandlerConfig, OidcBeginOutput, OidcCompleteCommand,
-    OidcCompleteCommandHandler, OidcCompleteOutput, OidcCompleteReplayOutput, UserActivateCommand,
-    UserActivateCommandHandler, UserActivateOutput, UserDeactivateCommand,
+    UserActivateCommand, UserActivateCommandHandler, UserActivateOutput, UserDeactivateCommand,
     UserDeactivateCommandHandler, UserDeactivateOutput, UserDeleteCommand,
     UserDeleteCommandHandler, UserDeleteOutput, UserDeletePictureObjectCommand,
     UserDeletePictureObjectCommandHandler, UserDeletePictureObjectCommandHandlerError,

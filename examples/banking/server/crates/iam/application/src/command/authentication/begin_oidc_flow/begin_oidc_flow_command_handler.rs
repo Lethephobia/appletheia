@@ -13,20 +13,21 @@ use crate::authorization::UserOwnerRelation;
 use crate::oidc::{OidcCompletionPurpose, OidcContinuationPayload};
 
 use super::{
-    OidcBeginCommand, OidcBeginCommandHandlerConfig, OidcBeginCommandHandlerError, OidcBeginOutput,
+    BeginOidcFlowCommand, BeginOidcFlowCommandHandlerConfig, BeginOidcFlowCommandHandlerError,
+    BeginOidcFlowOutput,
 };
 
-pub struct OidcBeginCommandHandler<OLF, OCS>
+pub struct BeginOidcFlowCommandHandler<OLF, OCS>
 where
     OLF: OidcLoginFlow,
     OCS: OidcContinuationStore<OidcContinuationPayload, Uow = OLF::Uow>,
 {
     oidc_login_flow: OLF,
     oidc_continuation_store: OCS,
-    config: OidcBeginCommandHandlerConfig,
+    config: BeginOidcFlowCommandHandlerConfig,
 }
 
-impl<OLF, OCS> OidcBeginCommandHandler<OLF, OCS>
+impl<OLF, OCS> BeginOidcFlowCommandHandler<OLF, OCS>
 where
     OLF: OidcLoginFlow,
     OCS: OidcContinuationStore<OidcContinuationPayload, Uow = OLF::Uow>,
@@ -34,7 +35,7 @@ where
     pub fn new(
         oidc_login_flow: OLF,
         oidc_continuation_store: OCS,
-        config: OidcBeginCommandHandlerConfig,
+        config: BeginOidcFlowCommandHandlerConfig,
     ) -> Self {
         Self {
             oidc_login_flow,
@@ -44,14 +45,14 @@ where
     }
 }
 
-impl<OLF, OCS> CommandHandler for OidcBeginCommandHandler<OLF, OCS>
+impl<OLF, OCS> CommandHandler for BeginOidcFlowCommandHandler<OLF, OCS>
 where
     OLF: OidcLoginFlow,
     OCS: OidcContinuationStore<OidcContinuationPayload, Uow = OLF::Uow>,
 {
-    type Command = OidcBeginCommand;
-    type Output = OidcBeginOutput;
-    type Error = OidcBeginCommandHandlerError;
+    type Command = BeginOidcFlowCommand;
+    type Output = BeginOidcFlowOutput;
+    type Error = BeginOidcFlowCommandHandlerError;
     type Uow = OLF::Uow;
 
     fn authorization_plan(
@@ -79,7 +80,7 @@ where
         _request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
-        let OidcBeginCommand {
+        let BeginOidcFlowCommand {
             completion_purpose,
             completion_redirect_uri,
             return_to,
@@ -95,7 +96,7 @@ where
             .allowed_completion_redirect_uris()
             .contains(&completion_redirect_uri)
         {
-            return Err(OidcBeginCommandHandlerError::CompletionRedirectUriNotAllowed);
+            return Err(BeginOidcFlowCommandHandlerError::CompletionRedirectUriNotAllowed);
         }
 
         let options = OidcBeginOptions {
@@ -122,7 +123,7 @@ where
             .save(uow, &continuation)
             .await?;
 
-        Ok(OidcBeginOutput {
+        Ok(BeginOidcFlowOutput {
             authorization_url: begin_result.authorization_url,
             expires_at: continuation.expires_at(),
         })
@@ -156,8 +157,8 @@ mod tests {
     };
 
     use super::{
-        OidcBeginCommand, OidcBeginCommandHandler, OidcBeginCommandHandlerConfig,
-        OidcBeginCommandHandlerError, OidcBeginOutput,
+        BeginOidcFlowCommand, BeginOidcFlowCommandHandler, BeginOidcFlowCommandHandlerConfig,
+        BeginOidcFlowCommandHandlerError, BeginOidcFlowOutput,
     };
 
     #[derive(Default)]
@@ -252,8 +253,8 @@ mod tests {
             .expect("completion redirect URI should be valid")
     }
 
-    fn command(completion_redirect_uri: OidcCompletionRedirectUri) -> OidcBeginCommand {
-        OidcBeginCommand {
+    fn command(completion_redirect_uri: OidcCompletionRedirectUri) -> BeginOidcFlowCommand {
+        BeginOidcFlowCommand {
             completion_purpose: OidcCompletionPurpose::ExchangeCode,
             completion_redirect_uri,
             return_to: Some(
@@ -282,14 +283,14 @@ mod tests {
     #[tokio::test]
     async fn handle_accepts_an_exactly_allowed_completion_redirect_uri() {
         let allowed_redirect_uri = completion_redirect_uri("com.example.app:/oidc/complete");
-        let config = OidcBeginCommandHandlerConfig::new(OidcCompletionRedirectUris::from([
+        let config = BeginOidcFlowCommandHandlerConfig::new(OidcCompletionRedirectUris::from([
             allowed_redirect_uri.clone(),
         ]));
         let login_flow = TestOidcLoginFlow::new(begin_result());
         let begin_calls = login_flow.begin_calls.clone();
         let continuation_store = TestOidcContinuationStore::default();
         let saved_continuations = continuation_store.saved.clone();
-        let handler = OidcBeginCommandHandler::new(login_flow, continuation_store, config);
+        let handler = BeginOidcFlowCommandHandler::new(login_flow, continuation_store, config);
         let mut uow = TestUow;
 
         let output = handler
@@ -307,7 +308,7 @@ mod tests {
         assert_eq!(begin_calls.load(Ordering::Relaxed), 1);
         assert_eq!(
             output,
-            OidcBeginOutput {
+            BeginOidcFlowOutput {
                 authorization_url: OidcAuthorizationUrl::new(
                     Url::parse("https://accounts.example.com/authorize")
                         .expect("authorization URL should be valid"),
@@ -332,14 +333,14 @@ mod tests {
     #[tokio::test]
     async fn handle_rejects_a_completion_redirect_uri_before_beginning_the_flow() {
         let allowed_redirect_uri = completion_redirect_uri("https://app.example.com/oidc/complete");
-        let config = OidcBeginCommandHandlerConfig::new(OidcCompletionRedirectUris::from([
+        let config = BeginOidcFlowCommandHandlerConfig::new(OidcCompletionRedirectUris::from([
             allowed_redirect_uri,
         ]));
         let login_flow = TestOidcLoginFlow::new(begin_result());
         let begin_calls = login_flow.begin_calls.clone();
         let continuation_store = TestOidcContinuationStore::default();
         let saved_continuations = continuation_store.saved.clone();
-        let handler = OidcBeginCommandHandler::new(login_flow, continuation_store, config);
+        let handler = BeginOidcFlowCommandHandler::new(login_flow, continuation_store, config);
         let mut uow = TestUow;
 
         let handle_error = handler
@@ -355,7 +356,7 @@ mod tests {
 
         assert!(matches!(
             handle_error,
-            OidcBeginCommandHandlerError::CompletionRedirectUriNotAllowed
+            BeginOidcFlowCommandHandlerError::CompletionRedirectUriNotAllowed
         ));
         assert!(!handle_error.is_retryable());
         assert_eq!(begin_calls.load(Ordering::Relaxed), 0);

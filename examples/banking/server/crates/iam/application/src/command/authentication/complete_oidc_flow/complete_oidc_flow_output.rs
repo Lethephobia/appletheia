@@ -7,10 +7,10 @@ use banking_iam_domain::UserId;
 
 use crate::oidc::{OidcCompletionPurpose, OidcCompletionRedirectUri, OidcReturnTo};
 
-use super::OidcCompleteReplayOutput;
+use super::CompleteOidcFlowReplayOutput;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum OidcCompleteOutput {
+pub enum CompleteOidcFlowOutput {
     Token {
         completion_redirect_uri: OidcCompletionRedirectUri,
         return_to: Option<OidcReturnTo>,
@@ -32,14 +32,14 @@ pub enum OidcCompleteOutput {
     },
 }
 
-impl OidcCompleteOutput {
-    fn replay_safe_output(&self) -> OidcCompleteReplayOutput {
+impl CompleteOidcFlowOutput {
+    fn replay_safe_output(&self) -> CompleteOidcFlowReplayOutput {
         match self {
             Self::Token {
                 completion_redirect_uri,
                 return_to,
                 ..
-            } => OidcCompleteReplayOutput {
+            } => CompleteOidcFlowReplayOutput {
                 completion_purpose: OidcCompletionPurpose::Token,
                 completion_redirect_uri: completion_redirect_uri.clone(),
                 return_to: return_to.clone(),
@@ -48,7 +48,7 @@ impl OidcCompleteOutput {
                 completion_redirect_uri,
                 return_to,
                 ..
-            } => OidcCompleteReplayOutput {
+            } => CompleteOidcFlowReplayOutput {
                 completion_purpose: OidcCompletionPurpose::ExchangeCode,
                 completion_redirect_uri: completion_redirect_uri.clone(),
                 return_to: return_to.clone(),
@@ -58,7 +58,7 @@ impl OidcCompleteOutput {
                 completion_redirect_uri,
                 return_to,
                 ..
-            } => OidcCompleteReplayOutput {
+            } => CompleteOidcFlowReplayOutput {
                 completion_purpose: OidcCompletionPurpose::LinkIdentity { user_id: *user_id },
                 completion_redirect_uri: completion_redirect_uri.clone(),
                 return_to: return_to.clone(),
@@ -67,8 +67,8 @@ impl OidcCompleteOutput {
     }
 }
 
-impl CommandOutput for OidcCompleteOutput {
-    type ReplayOutput = OidcCompleteReplayOutput;
+impl CommandOutput for CompleteOidcFlowOutput {
+    type ReplayOutput = CompleteOidcFlowReplayOutput;
 
     fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
         CommandReplayOutput::Owned(self.replay_safe_output())
@@ -87,7 +87,7 @@ mod tests {
     use banking_iam_domain::UserId;
     use chrono::{Duration, Utc};
 
-    use super::{OidcCompleteOutput, OidcCompleteReplayOutput};
+    use super::{CompleteOidcFlowOutput, CompleteOidcFlowReplayOutput};
     use crate::oidc::{OidcCompletionPurpose, OidcCompletionRedirectUri, OidcReturnTo};
 
     #[test]
@@ -112,7 +112,7 @@ mod tests {
             None,
         );
 
-        let token_output = OidcCompleteOutput::Token {
+        let token_output = CompleteOidcFlowOutput::Token {
             completion_redirect_uri: completion_redirect_uri.clone(),
             return_to: Some(return_to.clone()),
             auth_token: AuthToken::new(auth_token_secret.to_owned()),
@@ -120,14 +120,14 @@ mod tests {
                 .expect("auth token expiry should be valid"),
             oidc_tokens: oidc_tokens.clone(),
         };
-        let exchange_code_output = OidcCompleteOutput::ExchangeCode {
+        let exchange_code_output = CompleteOidcFlowOutput::ExchangeCode {
             completion_redirect_uri: completion_redirect_uri.clone(),
             return_to: Some(return_to.clone()),
             auth_token_exchange_code: exchange_code,
             auth_token_exchange_code_expires_at: AuthTokenExchangeCodeExpiresAt::from(Utc::now()),
         };
         let user_id = UserId::new();
-        let identity_linked_output = OidcCompleteOutput::IdentityLinked {
+        let identity_linked_output = CompleteOidcFlowOutput::IdentityLinked {
             user_id,
             completion_redirect_uri: completion_redirect_uri.clone(),
             return_to: Some(return_to.clone()),
@@ -139,15 +139,15 @@ mod tests {
             .expect("exchange-code replay output should serialize");
         let identity_linked_json = serde_json::to_string(&identity_linked_output.replay_output())
             .expect("identity-linked replay output should serialize");
-        let token_replay_output: OidcCompleteReplayOutput =
+        let token_replay_output: CompleteOidcFlowReplayOutput =
             serde_json::from_str(&token_json).expect("token replay output should deserialize");
-        let identity_linked_replay_output: OidcCompleteReplayOutput =
+        let identity_linked_replay_output: CompleteOidcFlowReplayOutput =
             serde_json::from_str(&identity_linked_json)
                 .expect("identity-linked replay output should deserialize");
 
         assert_eq!(
             token_replay_output,
-            OidcCompleteReplayOutput {
+            CompleteOidcFlowReplayOutput {
                 completion_purpose: OidcCompletionPurpose::Token,
                 completion_redirect_uri: expected_completion_redirect_uri,
                 return_to: Some(expected_return_to.clone()),
@@ -155,7 +155,7 @@ mod tests {
         );
         assert_eq!(
             identity_linked_replay_output,
-            OidcCompleteReplayOutput {
+            CompleteOidcFlowReplayOutput {
                 completion_purpose: OidcCompletionPurpose::LinkIdentity { user_id },
                 completion_redirect_uri: completion_redirect_uri.clone(),
                 return_to: Some(expected_return_to.clone()),

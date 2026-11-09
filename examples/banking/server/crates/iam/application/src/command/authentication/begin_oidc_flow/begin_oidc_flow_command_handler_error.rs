@@ -5,7 +5,7 @@ use appletheia::application::authentication::oidc::{
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum OidcBeginCommandHandlerError {
+pub enum BeginOidcFlowCommandHandlerError {
     #[error("oidc completion redirect URI is not allowed")]
     CompletionRedirectUriNotAllowed,
 
@@ -16,7 +16,7 @@ pub enum OidcBeginCommandHandlerError {
     OidcContinuationStore(#[from] OidcContinuationStoreError),
 }
 
-impl Retryability for OidcBeginCommandHandlerError {
+impl Retryability for BeginOidcFlowCommandHandlerError {
     fn is_retryable(&self) -> bool {
         match self {
             Self::CompletionRedirectUriNotAllowed => false,

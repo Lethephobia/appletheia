@@ -18,9 +18,9 @@ use banking_shared_kernel_domain::contact::Email;
 
 use crate::oidc::{OidcCompletionPurpose, OidcContinuationPayload};
 
-use super::{OidcCompleteCommand, OidcCompleteCommandHandlerError, OidcCompleteOutput};
+use super::{CompleteOidcFlowCommand, CompleteOidcFlowCommandHandlerError, CompleteOidcFlowOutput};
 
-pub struct OidcCompleteCommandHandler<OLF, OCS, R, ATI, ATECI>
+pub struct CompleteOidcFlowCommandHandler<OLF, OCS, R, ATI, ATECI>
 where
     OLF: OidcLoginFlow,
     OCS: OidcContinuationStore<OidcContinuationPayload, Uow = OLF::Uow>,
@@ -35,7 +35,7 @@ where
     auth_token_exchange_code_issuer: ATECI,
 }
 
-impl<OLF, OCS, R, ATI, ATECI> OidcCompleteCommandHandler<OLF, OCS, R, ATI, ATECI>
+impl<OLF, OCS, R, ATI, ATECI> CompleteOidcFlowCommandHandler<OLF, OCS, R, ATI, ATECI>
 where
     OLF: OidcLoginFlow,
     OCS: OidcContinuationStore<OidcContinuationPayload, Uow = OLF::Uow>,
@@ -62,7 +62,7 @@ where
     fn provider_subject_unique_value(
         provider: &UserIdentityProvider,
         subject: &UserIdentitySubject,
-    ) -> Result<UniqueValue, OidcCompleteCommandHandlerError> {
+    ) -> Result<UniqueValue, CompleteOidcFlowCommandHandlerError> {
         let provider_part = UniqueValuePart::try_from(provider.as_ref())?;
         let subject_part = UniqueValuePart::try_from(subject.as_ref())?;
 
@@ -75,7 +75,7 @@ where
         provider: &UserIdentityProvider,
         subject: &UserIdentitySubject,
         email: Option<Email>,
-    ) -> Result<User, OidcCompleteCommandHandlerError> {
+    ) -> Result<User, CompleteOidcFlowCommandHandlerError> {
         let unique_value = Self::provider_subject_unique_value(provider, subject)?;
 
         match self
@@ -105,7 +105,7 @@ where
         provider: &UserIdentityProvider,
         subject: &UserIdentitySubject,
         email: Option<Email>,
-    ) -> Result<User, OidcCompleteCommandHandlerError> {
+    ) -> Result<User, CompleteOidcFlowCommandHandlerError> {
         let unique_value = Self::provider_subject_unique_value(provider, subject)?;
 
         match self
@@ -133,7 +133,8 @@ where
     }
 }
 
-impl<OLF, OCS, R, ATI, ATECI> CommandHandler for OidcCompleteCommandHandler<OLF, OCS, R, ATI, ATECI>
+impl<OLF, OCS, R, ATI, ATECI> CommandHandler
+    for CompleteOidcFlowCommandHandler<OLF, OCS, R, ATI, ATECI>
 where
     OLF: OidcLoginFlow,
     OCS: OidcContinuationStore<OidcContinuationPayload, Uow = OLF::Uow>,
@@ -141,9 +142,9 @@ where
     ATI: AuthTokenIssuer,
     ATECI: AuthTokenExchangeCodeIssuer<Uow = OLF::Uow>,
 {
-    type Command = OidcCompleteCommand;
-    type Output = OidcCompleteOutput;
-    type Error = OidcCompleteCommandHandlerError;
+    type Command = CompleteOidcFlowCommand;
+    type Output = CompleteOidcFlowOutput;
+    type Error = CompleteOidcFlowCommandHandlerError;
     type Uow = OLF::Uow;
 
     fn authorization_plan(
@@ -215,7 +216,7 @@ where
                     .issue(AuthTokenIssuanceRequest::new(subject))
                     .await?;
 
-                OidcCompleteOutput::Token {
+                CompleteOidcFlowOutput::Token {
                     completion_redirect_uri,
                     return_to,
                     auth_token: result.token().clone(),
@@ -236,19 +237,21 @@ where
                     )
                     .await?;
 
-                OidcCompleteOutput::ExchangeCode {
+                CompleteOidcFlowOutput::ExchangeCode {
                     completion_redirect_uri,
                     return_to,
                     auth_token_exchange_code: result.code().clone(),
                     auth_token_exchange_code_expires_at: result.expires_at(),
                 }
             }
-            OidcCompletionPurpose::LinkIdentity { user_id } => OidcCompleteOutput::IdentityLinked {
-                user_id,
-                completion_redirect_uri,
-                return_to,
-                oidc_tokens: complete_result.tokens,
-            },
+            OidcCompletionPurpose::LinkIdentity { user_id } => {
+                CompleteOidcFlowOutput::IdentityLinked {
+                    user_id,
+                    completion_redirect_uri,
+                    return_to,
+                    oidc_tokens: complete_result.tokens,
+                }
+            }
         })
     }
 }

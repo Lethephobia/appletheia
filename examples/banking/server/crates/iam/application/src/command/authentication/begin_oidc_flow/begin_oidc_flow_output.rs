@@ -6,12 +6,12 @@ use appletheia::application::authentication::oidc::{
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OidcBeginOutput {
+pub struct BeginOidcFlowOutput {
     pub authorization_url: OidcAuthorizationUrl,
     pub expires_at: OidcContinuationExpiresAt,
 }
 
-impl CommandOutput for OidcBeginOutput {
+impl CommandOutput for BeginOidcFlowOutput {
     type ReplayOutput = Self;
 
     fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {

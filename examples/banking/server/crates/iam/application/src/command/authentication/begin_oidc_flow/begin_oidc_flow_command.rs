@@ -8,9 +8,9 @@ use serde::{Deserialize, Serialize};
 use crate::oidc::{OidcCompletionPurpose, OidcCompletionRedirectUri, OidcReturnTo};
 
 /// Starts an OIDC authorization flow for a user.
-#[command(name = "oidc_begin")]
+#[command(name = "begin_oidc_flow")]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OidcBeginCommand {
+pub struct BeginOidcFlowCommand {
     pub completion_purpose: OidcCompletionPurpose,
     pub completion_redirect_uri: OidcCompletionRedirectUri,
     pub return_to: Option<OidcReturnTo>,

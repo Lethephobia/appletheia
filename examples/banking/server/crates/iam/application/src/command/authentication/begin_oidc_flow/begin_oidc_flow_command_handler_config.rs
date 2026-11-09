@@ -1,13 +1,13 @@
 use crate::oidc::OidcCompletionRedirectUris;
 
-/// Configuration for `OidcBeginCommandHandler`.
+/// Configuration for `BeginOidcFlowCommandHandler`.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct OidcBeginCommandHandlerConfig {
+pub struct BeginOidcFlowCommandHandlerConfig {
     allowed_completion_redirect_uris: OidcCompletionRedirectUris,
 }
 
-impl OidcBeginCommandHandlerConfig {
-    /// Creates an OIDC-begin command handler configuration.
+impl BeginOidcFlowCommandHandlerConfig {
+    /// Creates the configuration for starting an OIDC flow.
     pub fn new(allowed_completion_redirect_uris: OidcCompletionRedirectUris) -> Self {
         Self {
             allowed_completion_redirect_uris,
