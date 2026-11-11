@@ -5,7 +5,7 @@ use banking_ledger_application::settlement::{
     SolanaDepositSettlementPreparationRequest, SolanaDepositSettlementPreparer,
     SolanaPreparedDepositTransaction,
 };
-use banking_ledger_domain::core::TokenDecimals;
+use banking_ledger_domain::onchain::TokenDecimals;
 use banking_settlement::{
     BankingSettlementConfig, DepositSettlementReceipt, PoolAuthority, accounts, instruction,
 };

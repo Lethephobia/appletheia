@@ -31,7 +31,7 @@ pub use account_status::AccountStatus;
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
-use crate::core::CurrencyAmount;
+use crate::currency::CurrencyAmount;
 use crate::currency::CurrencyId;
 
 /// Represents the `Account` aggregate root.
@@ -349,7 +349,7 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateApply, EventPayload};
     use banking_iam_domain::{OrganizationId, UserId};
 
-    use crate::core::CurrencyAmount;
+    use crate::currency::CurrencyAmount;
     use crate::currency::CurrencyId;
 
     use super::{Account, AccountError, AccountEventPayload, AccountName, AccountOwner};

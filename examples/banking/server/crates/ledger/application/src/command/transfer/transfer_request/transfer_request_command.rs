@@ -1,6 +1,6 @@
 use appletheia::command;
 use banking_ledger_domain::account::AccountId;
-use banking_ledger_domain::core::CurrencyAmount;
+use banking_ledger_domain::currency::CurrencyAmount;
 use banking_ledger_domain::transfer::TransferNote;
 use serde::{Deserialize, Serialize};
 

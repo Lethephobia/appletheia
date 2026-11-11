@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::core::CurrencyAmountError;
+use crate::currency::CurrencyAmountError;
 
 /// Describes why an account balance transition failed.
 #[derive(Debug, Error)]

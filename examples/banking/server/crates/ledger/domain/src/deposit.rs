@@ -24,7 +24,8 @@ use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
 use crate::account::AccountId;
-use crate::core::{CurrencyAmount, OnchainTransactionId, TokenOwnerAddress};
+use crate::currency::CurrencyAmount;
+use crate::onchain::{OnchainTransactionId, TokenOwnerAddress};
 use crate::token_binding::TokenBindingId;
 
 /// Represents the `Deposit` aggregate root.
@@ -212,8 +213,9 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateApply, EventPayload};
 
     use crate::account::AccountId;
-    use crate::core::{
-        CurrencyAmount, OnchainTransactionId, SolanaAccountAddress, SolanaTokenAccountOwnerAddress,
+    use crate::currency::CurrencyAmount;
+    use crate::onchain::{
+        OnchainTransactionId, SolanaAccountAddress, SolanaTokenAccountOwnerAddress,
         SolanaTransactionSignature, TokenOwnerAddress,
     };
     use crate::token_binding::TokenBindingId;

@@ -1,6 +1,6 @@
 use appletheia::command;
-use banking_ledger_domain::core::OnchainTransactionId;
 use banking_ledger_domain::deposit::DepositId;
+use banking_ledger_domain::onchain::OnchainTransactionId;
 use serde::{Deserialize, Serialize};
 
 /// Records an verified token settlement for a deposit.

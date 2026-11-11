@@ -1,9 +1,9 @@
 pub mod account;
-pub mod core;
 pub mod currency;
 pub mod currency_registrar;
 pub mod currency_registrar_membership;
 pub mod deposit;
+pub mod onchain;
 pub mod owned_account_closure;
 pub mod token_binding;
 pub mod transfer;

@@ -5,7 +5,7 @@ use banking_ledger_application::settlement::{
     EthereumTokenBindingSettlementValidationRequest, EthereumTokenBindingSettlementValidator,
     TokenBindingSettlementValidatorError,
 };
-use banking_ledger_domain::core::TokenDecimals;
+use banking_ledger_domain::onchain::TokenDecimals;
 
 use super::DefaultEthereumTokenBindingSettlementValidatorError;
 use crate::ethereum::contract::IERC20Metadata;
@@ -80,7 +80,8 @@ mod tests {
         EthereumTokenBindingSettlementValidationRequest, EthereumTokenBindingSettlementValidator,
         TokenBindingSettlementValidatorError,
     };
-    use banking_ledger_domain::core::{CurrencyDecimals, EvmAddress, EvmTokenContractAddress};
+    use banking_ledger_domain::currency::CurrencyDecimals;
+    use banking_ledger_domain::onchain::{EvmAddress, EvmTokenContractAddress};
 
     use super::DefaultEthereumTokenBindingSettlementValidator;
 

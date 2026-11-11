@@ -1,6 +1,6 @@
 use appletheia::event_payload;
 
-use crate::core::{CurrencyCode, CurrencyDecimals};
+use crate::currency::{CurrencyCode, CurrencyDecimals};
 use crate::currency_registrar::CurrencyRegistrarId;
 
 use super::{CurrencyDescription, CurrencyEventPayloadError};

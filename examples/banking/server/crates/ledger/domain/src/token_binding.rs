@@ -17,8 +17,8 @@ pub use token_binding_status::TokenBindingStatus;
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
-use crate::core::{ChainNetwork, TokenAddress};
 use crate::currency::CurrencyId;
+use crate::onchain::{ChainNetwork, TokenAddress};
 
 /// Binds one Currency to an external token on one blockchain network.
 #[aggregate(type = "token_binding", error = TokenBindingError)]
@@ -161,8 +161,8 @@ mod tests {
 
     use appletheia::domain::Aggregate;
 
-    use crate::core::{ChainNetwork, EvmTokenContractAddress, TokenAddress};
     use crate::currency::CurrencyId;
+    use crate::onchain::{ChainNetwork, EvmTokenContractAddress, TokenAddress};
 
     use super::{TokenBinding, TokenBindingError, TokenBindingStatus};
 

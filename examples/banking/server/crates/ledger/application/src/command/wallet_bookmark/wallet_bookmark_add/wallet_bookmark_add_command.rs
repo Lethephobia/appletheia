@@ -1,5 +1,5 @@
 use appletheia::command;
-use banking_ledger_domain::core::TokenOwnerAddress;
+use banking_ledger_domain::onchain::TokenOwnerAddress;
 use banking_ledger_domain::wallet_bookmark::{
     WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkOwner,
 };

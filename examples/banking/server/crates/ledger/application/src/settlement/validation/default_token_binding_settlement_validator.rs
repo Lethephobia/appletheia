@@ -1,4 +1,4 @@
-use banking_ledger_domain::core::{ChainNetwork, TokenAddress};
+use banking_ledger_domain::onchain::{ChainNetwork, TokenAddress};
 
 use super::{
     EthereumTokenBindingSettlementValidationRequest, EthereumTokenBindingSettlementValidator,
@@ -62,8 +62,9 @@ mod tests {
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    use banking_ledger_domain::core::{
-        ChainNetwork, CurrencyDecimals, EvmAddress, EvmTokenContractAddress, SolanaAccountAddress,
+    use banking_ledger_domain::currency::CurrencyDecimals;
+    use banking_ledger_domain::onchain::{
+        ChainNetwork, EvmAddress, EvmTokenContractAddress, SolanaAccountAddress,
         SolanaMintAccountAddress, TokenAddress,
     };
 

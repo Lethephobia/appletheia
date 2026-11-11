@@ -1,7 +1,7 @@
 use appletheia::event_payload;
 
 use crate::account::AccountId;
-use crate::core::CurrencyAmount;
+use crate::currency::CurrencyAmount;
 
 use super::{TransferEventPayloadError, TransferFailureReason, TransferNote};
 

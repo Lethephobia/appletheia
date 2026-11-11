@@ -1,4 +1,4 @@
-use banking_ledger_domain::core::EvmAddress;
+use banking_ledger_domain::onchain::EvmAddress;
 
 pub struct DefaultEthereumWithdrawalSettlementExecutorConfig {
     pub(super) settlement_contract: EvmAddress,

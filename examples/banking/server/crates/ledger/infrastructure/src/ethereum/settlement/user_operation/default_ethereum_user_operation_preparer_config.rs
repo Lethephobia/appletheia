@@ -1,5 +1,5 @@
 use alloy::signers::local::PrivateKeySigner;
-use banking_ledger_domain::core::EvmAddress;
+use banking_ledger_domain::onchain::EvmAddress;
 use chrono::Duration;
 
 pub struct DefaultEthereumUserOperationPreparerConfig {

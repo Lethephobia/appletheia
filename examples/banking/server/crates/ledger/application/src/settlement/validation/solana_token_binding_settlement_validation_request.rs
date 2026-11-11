@@ -1,4 +1,5 @@
-use banking_ledger_domain::core::{CurrencyDecimals, SolanaMintAccountAddress};
+use banking_ledger_domain::currency::CurrencyDecimals;
+use banking_ledger_domain::onchain::SolanaMintAccountAddress;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SolanaTokenBindingSettlementValidationRequest {

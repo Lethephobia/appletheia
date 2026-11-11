@@ -1,4 +1,4 @@
-use banking_ledger_domain::core::OnchainTransactionId;
+use banking_ledger_domain::onchain::OnchainTransactionId;
 
 /// Contains the canonical transaction identity returned by withdrawal execution.
 #[derive(Clone, Debug, Eq, PartialEq)]

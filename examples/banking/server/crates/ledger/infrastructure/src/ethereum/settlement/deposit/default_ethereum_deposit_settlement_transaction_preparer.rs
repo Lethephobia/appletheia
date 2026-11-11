@@ -9,7 +9,7 @@ use banking_ledger_application::settlement::{
     EthereumDepositSettlementTransactionPreparerError, EvmCallData, EvmDepositAuthorization,
     EvmTransactionRequest,
 };
-use banking_ledger_domain::core::{EvmChainId, TokenDecimals};
+use banking_ledger_domain::onchain::{EvmChainId, TokenDecimals};
 use chrono::Utc;
 
 use super::{

@@ -1,6 +1,6 @@
 use appletheia::application::saga::SagaState;
 use banking_ledger_domain::account::AccountId;
-use banking_ledger_domain::core::CurrencyAmount;
+use banking_ledger_domain::currency::CurrencyAmount;
 use banking_ledger_domain::transfer::TransferId;
 use serde::{Deserialize, Serialize};
 

@@ -4,7 +4,7 @@ use appletheia::reference_indexes;
 use appletheia::unique_constraints;
 use uuid::Uuid;
 
-use crate::core::{CurrencyCode, CurrencyDecimals};
+use crate::currency::{CurrencyCode, CurrencyDecimals};
 use crate::currency_registrar::CurrencyRegistrarId;
 
 use super::{CurrencyDescription, CurrencyStateError, CurrencyStatus};

@@ -4,7 +4,8 @@ use appletheia::unique_constraints;
 use uuid::Uuid;
 
 use crate::account::AccountId;
-use crate::core::{CurrencyAmount, OnchainTransactionId, TokenOwnerAddress};
+use crate::currency::CurrencyAmount;
+use crate::onchain::{OnchainTransactionId, TokenOwnerAddress};
 use crate::token_binding::TokenBindingId;
 
 use super::{WithdrawalNote, WithdrawalStateError, WithdrawalStatus};

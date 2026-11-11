@@ -1,7 +1,7 @@
 use appletheia::event_payload;
 
-use crate::core::{ChainNetwork, TokenAddress};
 use crate::currency::CurrencyId;
+use crate::onchain::{ChainNetwork, TokenAddress};
 
 use super::TokenBindingEventPayloadError;
 

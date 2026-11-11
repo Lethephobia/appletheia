@@ -3,7 +3,7 @@ use std::fmt::{self, Display};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::{CurrencyAmountError, CurrencyDecimals};
-use crate::core::{TokenAmount, TokenAmountConversionError, TokenDecimals};
+use crate::onchain::{TokenAmount, TokenAmountConversionError, TokenDecimals};
 
 /// Represents a non-negative quantity in a currency's smallest unit.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -113,10 +113,8 @@ impl Display for CurrencyAmount {
 #[cfg(test)]
 mod tests {
     use super::CurrencyAmount;
-    use crate::core::{
-        CurrencyAmountError, CurrencyDecimals, TokenAmount, TokenAmountConversionError,
-        TokenDecimals,
-    };
+    use crate::currency::{CurrencyAmountError, CurrencyDecimals};
+    use crate::onchain::{TokenAmount, TokenAmountConversionError, TokenDecimals};
 
     #[test]
     fn checked_arithmetic_rejects_overflow_and_insufficient_amount() {

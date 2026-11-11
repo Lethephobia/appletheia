@@ -48,10 +48,10 @@ mod tests {
     use crate::authorization::{AccountOwnerRelation, AccountOwnershipManagerRelation};
     use crate::authorization::{WalletBookmarkManagerRelation, WalletBookmarkOwnerRelation};
     use banking_ledger_domain::account::{Account, AccountName, AccountOwner};
-    use banking_ledger_domain::core::{
+    use banking_ledger_domain::currency::CurrencyId;
+    use banking_ledger_domain::onchain::{
         SolanaAccountAddress, SolanaTokenAccountOwnerAddress, TokenOwnerAddress,
     };
-    use banking_ledger_domain::currency::CurrencyId;
     use banking_ledger_domain::wallet_bookmark::{WalletBookmark, WalletBookmarkOwner};
 
     struct TestUow;

@@ -3,8 +3,8 @@ use appletheia::domain::UniqueValue;
 use appletheia::{reference_indexes, unique_constraints};
 use uuid::Uuid;
 
-use crate::core::{ChainNetwork, TokenAddress};
 use crate::currency::CurrencyId;
+use crate::onchain::{ChainNetwork, TokenAddress};
 
 use super::{TokenBindingStateError, TokenBindingStatus};
 

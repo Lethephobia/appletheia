@@ -1,4 +1,4 @@
-use banking_ledger_domain::core::{
+use banking_ledger_domain::onchain::{
     ChainNetwork, OnchainTransactionId, TokenAddress, TokenOwnerAddress,
 };
 
@@ -90,13 +90,14 @@ where
 
 #[cfg(test)]
 mod tests {
-    use banking_ledger_domain::core::{
-        ChainNetwork, CurrencyAmount, CurrencyDecimals, EvmAddress, EvmTokenContractAddress,
-        EvmTokenOwnerAddress, EvmTransactionHash, OnchainTransactionId, SolanaAccountAddress,
-        SolanaMintAccountAddress, SolanaTokenAccountOwnerAddress, SolanaTransactionSignature,
-        TokenAddress, TokenOwnerAddress,
-    };
+    use banking_ledger_domain::currency::{CurrencyAmount, CurrencyDecimals};
     use banking_ledger_domain::deposit::DepositId;
+    use banking_ledger_domain::onchain::{
+        ChainNetwork, EvmAddress, EvmTokenContractAddress, EvmTokenOwnerAddress,
+        EvmTransactionHash, OnchainTransactionId, SolanaAccountAddress, SolanaMintAccountAddress,
+        SolanaTokenAccountOwnerAddress, SolanaTransactionSignature, TokenAddress,
+        TokenOwnerAddress,
+    };
 
     use crate::settlement::{
         EthereumDepositSettlementVerification, SolanaDepositSettlementVerification,

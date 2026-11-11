@@ -1,6 +1,5 @@
-use banking_ledger_domain::core::{
-    CurrencyAmount, CurrencyDecimals, SolanaMintAccountAddress, SolanaTokenAccountOwnerAddress,
-};
+use banking_ledger_domain::currency::{CurrencyAmount, CurrencyDecimals};
+use banking_ledger_domain::onchain::{SolanaMintAccountAddress, SolanaTokenAccountOwnerAddress};
 use banking_ledger_domain::withdrawal::WithdrawalId;
 
 #[derive(Clone, Debug, Eq, PartialEq)]

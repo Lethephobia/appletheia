@@ -222,7 +222,7 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateId, EventId, EventOccurredAt, EventPayload};
     use banking_iam_domain::{User, UserId};
     use banking_ledger_domain::account::{Account, AccountEventPayload, AccountId};
-    use banking_ledger_domain::core::CurrencyAmount;
+    use banking_ledger_domain::currency::CurrencyAmount;
     use banking_ledger_domain::transfer::{
         Transfer, TransferEventPayload, TransferFailureReason, TransferId,
     };

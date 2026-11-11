@@ -4,7 +4,7 @@ use banking_ledger_application::settlement::{
     SolanaWithdrawalSettlementExecution, SolanaWithdrawalSettlementExecutor,
     SolanaWithdrawalSettlementRequest, WithdrawalSettlementExecutorError,
 };
-use banking_ledger_domain::core::{SolanaTransactionSignature, TokenDecimals};
+use banking_ledger_domain::onchain::{SolanaTransactionSignature, TokenDecimals};
 use banking_settlement::{
     BankingSettlementConfig, PoolAuthority, WithdrawalSettlementReceipt, accounts, instruction,
 };

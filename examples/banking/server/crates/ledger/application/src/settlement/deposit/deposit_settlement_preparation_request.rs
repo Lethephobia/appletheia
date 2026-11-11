@@ -1,7 +1,6 @@
-use banking_ledger_domain::core::{
-    ChainNetwork, CurrencyAmount, CurrencyDecimals, TokenAddress, TokenOwnerAddress,
-};
+use banking_ledger_domain::currency::{CurrencyAmount, CurrencyDecimals};
 use banking_ledger_domain::deposit::DepositId;
+use banking_ledger_domain::onchain::{ChainNetwork, TokenAddress, TokenOwnerAddress};
 
 use super::EvmDepositAuthorization;
 

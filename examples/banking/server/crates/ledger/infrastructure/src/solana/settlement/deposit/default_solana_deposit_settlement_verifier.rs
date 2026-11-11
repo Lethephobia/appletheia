@@ -4,7 +4,7 @@ use banking_ledger_application::settlement::{
     DepositSettlementVerifierError, SolanaDepositSettlementVerification,
     SolanaDepositSettlementVerificationRequest, SolanaDepositSettlementVerifier,
 };
-use banking_ledger_domain::core::TokenDecimals;
+use banking_ledger_domain::onchain::TokenDecimals;
 use banking_settlement::{DepositSettlementReceipt, PoolAuthority};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;

@@ -1,6 +1,6 @@
 use appletheia::command;
-use banking_ledger_domain::core::{ChainNetwork, TokenAddress};
 use banking_ledger_domain::currency::CurrencyId;
+use banking_ledger_domain::onchain::{ChainNetwork, TokenAddress};
 use serde::{Deserialize, Serialize};
 
 #[command(name = "token_binding_bind")]

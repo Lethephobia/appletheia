@@ -1,3 +1,8 @@
+mod currency_amount;
+mod currency_amount_error;
+mod currency_code;
+mod currency_code_error;
+mod currency_decimals;
 mod currency_description;
 mod currency_description_error;
 mod currency_error;
@@ -8,6 +13,11 @@ mod currency_state;
 mod currency_state_error;
 mod currency_status;
 
+pub use currency_amount::CurrencyAmount;
+pub use currency_amount_error::CurrencyAmountError;
+pub use currency_code::CurrencyCode;
+pub use currency_code_error::CurrencyCodeError;
+pub use currency_decimals::CurrencyDecimals;
 pub use currency_description::CurrencyDescription;
 pub use currency_description_error::CurrencyDescriptionError;
 pub use currency_error::CurrencyError;
@@ -21,7 +31,6 @@ pub use currency_status::CurrencyStatus;
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
-use crate::core::{CurrencyCode, CurrencyDecimals};
 use crate::currency_registrar::CurrencyRegistrarId;
 
 /// Represents a registered currency.
@@ -130,7 +139,7 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
 mod tests {
     use appletheia::domain::{Aggregate, AggregateApply};
 
-    use crate::core::{CurrencyCode, CurrencyDecimals};
+    use crate::currency::{CurrencyCode, CurrencyDecimals};
     use crate::currency_registrar::CurrencyRegistrarId;
 
     use super::{Currency, CurrencyDescription};

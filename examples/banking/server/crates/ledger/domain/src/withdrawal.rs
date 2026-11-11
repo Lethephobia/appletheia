@@ -24,7 +24,8 @@ use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
 use crate::account::AccountId;
-use crate::core::{CurrencyAmount, OnchainTransactionId, TokenOwnerAddress};
+use crate::currency::CurrencyAmount;
+use crate::onchain::{OnchainTransactionId, TokenOwnerAddress};
 use crate::token_binding::TokenBindingId;
 
 /// Represents the `Withdrawal` aggregate root.
@@ -213,9 +214,9 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateApply, EventPayload};
 
     use crate::account::AccountId;
-    use crate::core::{
-        CurrencyAmount, EvmTokenOwnerAddress, OnchainTransactionId, SolanaTransactionSignature,
-        TokenOwnerAddress,
+    use crate::currency::CurrencyAmount;
+    use crate::onchain::{
+        EvmTokenOwnerAddress, OnchainTransactionId, SolanaTransactionSignature, TokenOwnerAddress,
     };
     use crate::token_binding::TokenBindingId;
 

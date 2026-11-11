@@ -1,8 +1,8 @@
-use banking_ledger_domain::core::{
-    ChainNetwork, CurrencyAmount, CurrencyDecimals, OnchainTransactionId, TokenAddress,
-    TokenOwnerAddress,
-};
+use banking_ledger_domain::currency::{CurrencyAmount, CurrencyDecimals};
 use banking_ledger_domain::deposit::DepositId;
+use banking_ledger_domain::onchain::{
+    ChainNetwork, OnchainTransactionId, TokenAddress, TokenOwnerAddress,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DepositSettlementVerificationRequest {

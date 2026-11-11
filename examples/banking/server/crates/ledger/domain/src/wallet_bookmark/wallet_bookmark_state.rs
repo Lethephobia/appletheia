@@ -4,7 +4,7 @@ use appletheia::unique_constraints;
 use banking_iam_domain::{OrganizationId, UserId};
 use uuid::Uuid;
 
-use crate::core::TokenOwnerAddress;
+use crate::onchain::TokenOwnerAddress;
 
 use super::{
     WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkOwner,

@@ -4,7 +4,7 @@ use appletheia::unique_constraints;
 use uuid::Uuid;
 
 use crate::account::AccountId;
-use crate::core::CurrencyAmount;
+use crate::currency::CurrencyAmount;
 
 use super::{TransferNote, TransferStateError, TransferStatus};
 

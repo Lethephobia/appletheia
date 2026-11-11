@@ -1,4 +1,5 @@
-use banking_ledger_domain::core::{ChainNetwork, CurrencyDecimals, TokenAddress};
+use banking_ledger_domain::currency::CurrencyDecimals;
+use banking_ledger_domain::onchain::{ChainNetwork, TokenAddress};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TokenBindingSettlementValidationRequest {

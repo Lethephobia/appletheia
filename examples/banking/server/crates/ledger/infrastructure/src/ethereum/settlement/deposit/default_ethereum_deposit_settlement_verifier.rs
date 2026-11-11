@@ -6,7 +6,7 @@ use banking_ledger_application::settlement::{
     DepositSettlementVerifierError, EthereumDepositSettlementVerification,
     EthereumDepositSettlementVerificationRequest, EthereumDepositSettlementVerifier,
 };
-use banking_ledger_domain::core::TokenDecimals;
+use banking_ledger_domain::onchain::TokenDecimals;
 
 use super::{
     DefaultEthereumDepositSettlementVerifierConfig, DefaultEthereumDepositSettlementVerifierError,

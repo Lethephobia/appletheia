@@ -1,6 +1,6 @@
 use appletheia::command;
-use banking_ledger_domain::core::{CurrencyCode, CurrencyDecimals};
 use banking_ledger_domain::currency::CurrencyDescription;
+use banking_ledger_domain::currency::{CurrencyCode, CurrencyDecimals};
 use banking_ledger_domain::currency_registrar::CurrencyRegistrarId;
 use serde::{Deserialize, Serialize};
 

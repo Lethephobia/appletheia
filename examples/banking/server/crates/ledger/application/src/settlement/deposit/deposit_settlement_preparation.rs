@@ -12,7 +12,7 @@ pub enum DepositSettlementPreparation {
 
 #[cfg(test)]
 mod tests {
-    use banking_ledger_domain::core::{EvmAddress, EvmChainId, EvmTokenOwnerAddress};
+    use banking_ledger_domain::onchain::{EvmAddress, EvmChainId, EvmTokenOwnerAddress};
     use serde_json::json;
 
     use crate::settlement::{

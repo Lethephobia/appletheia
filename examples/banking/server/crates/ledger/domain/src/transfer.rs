@@ -24,7 +24,7 @@ use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
 use crate::account::AccountId;
-use crate::core::CurrencyAmount;
+use crate::currency::CurrencyAmount;
 
 /// Represents the `Transfer` aggregate root.
 #[aggregate(type = "transfer", error = TransferError)]
@@ -168,7 +168,7 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateApply};
 
     use crate::account::AccountId;
-    use crate::core::CurrencyAmount;
+    use crate::currency::CurrencyAmount;
 
     use super::{Transfer, TransferNote};
 

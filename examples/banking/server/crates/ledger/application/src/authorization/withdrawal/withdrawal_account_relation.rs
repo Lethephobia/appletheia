@@ -30,8 +30,8 @@ mod tests {
     };
     use appletheia::domain::Aggregate;
     use banking_ledger_domain::account::{Account, AccountId};
-    use banking_ledger_domain::core::CurrencyAmount;
-    use banking_ledger_domain::core::{
+    use banking_ledger_domain::currency::CurrencyAmount;
+    use banking_ledger_domain::onchain::{
         SolanaAccountAddress, SolanaTokenAccountOwnerAddress, TokenOwnerAddress,
     };
     use banking_ledger_domain::token_binding::TokenBindingId;

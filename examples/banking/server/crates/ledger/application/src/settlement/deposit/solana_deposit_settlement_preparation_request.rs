@@ -1,7 +1,6 @@
-use banking_ledger_domain::core::{
-    CurrencyAmount, CurrencyDecimals, SolanaMintAccountAddress, SolanaTokenAccountOwnerAddress,
-};
+use banking_ledger_domain::currency::{CurrencyAmount, CurrencyDecimals};
 use banking_ledger_domain::deposit::DepositId;
+use banking_ledger_domain::onchain::{SolanaMintAccountAddress, SolanaTokenAccountOwnerAddress};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SolanaDepositSettlementPreparationRequest {

@@ -32,7 +32,7 @@ mod tests {
     };
     use appletheia::domain::Aggregate;
     use banking_ledger_domain::account::{Account, AccountId};
-    use banking_ledger_domain::core::CurrencyAmount;
+    use banking_ledger_domain::currency::CurrencyAmount;
     use banking_ledger_domain::transfer::{Transfer, TransferNote};
 
     use super::TransferFromAccountRelation;

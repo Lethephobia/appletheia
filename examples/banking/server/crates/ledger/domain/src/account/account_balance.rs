@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::core::CurrencyAmount;
+use crate::currency::CurrencyAmount;
 
 use super::AccountBalanceError;
 
@@ -98,7 +98,7 @@ impl Default for AccountBalance {
 #[cfg(test)]
 mod tests {
     use super::{AccountBalance, AccountBalanceError};
-    use crate::core::CurrencyAmount;
+    use crate::currency::CurrencyAmount;
 
     #[test]
     fn reserve_and_commit_update_reserved_and_total_independently() {

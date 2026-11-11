@@ -5,7 +5,7 @@ use banking_ledger_application::settlement::{
     EthereumWithdrawalSettlementExecution, EthereumWithdrawalSettlementExecutor,
     EthereumWithdrawalSettlementRequest, WithdrawalSettlementExecutorError,
 };
-use banking_ledger_domain::core::{EvmTransactionHash, TokenDecimals};
+use banking_ledger_domain::onchain::{EvmTransactionHash, TokenDecimals};
 
 use super::{
     DefaultEthereumWithdrawalSettlementExecutorConfig,

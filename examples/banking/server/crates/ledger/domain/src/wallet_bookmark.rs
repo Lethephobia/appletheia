@@ -27,7 +27,7 @@ pub use wallet_bookmark_status::WalletBookmarkStatus;
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
-use crate::core::TokenOwnerAddress;
+use crate::onchain::TokenOwnerAddress;
 
 /// Represents the `WalletBookmark` aggregate root.
 #[aggregate(type = "wallet_bookmark", error = WalletBookmarkError)]
@@ -158,7 +158,7 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateApply, EventPayload};
     use banking_iam_domain::UserId;
 
-    use crate::core::{SolanaAccountAddress, SolanaTokenAccountOwnerAddress, TokenOwnerAddress};
+    use crate::onchain::{SolanaAccountAddress, SolanaTokenAccountOwnerAddress, TokenOwnerAddress};
 
     use super::{
         WalletBookmark, WalletBookmarkDescription, WalletBookmarkDisplayName,

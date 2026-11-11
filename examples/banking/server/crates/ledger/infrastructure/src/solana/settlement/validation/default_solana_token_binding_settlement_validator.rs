@@ -4,7 +4,7 @@ use banking_ledger_application::settlement::{
     SolanaTokenBindingSettlementValidationRequest, SolanaTokenBindingSettlementValidator,
     TokenBindingSettlementValidatorError,
 };
-use banking_ledger_domain::core::TokenDecimals;
+use banking_ledger_domain::onchain::TokenDecimals;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 use spl_token_2022_interface::{extension::StateWithExtensions, state::Mint};

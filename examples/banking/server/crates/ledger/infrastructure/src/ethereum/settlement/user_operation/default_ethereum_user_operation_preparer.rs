@@ -8,7 +8,7 @@ use banking_ledger_application::settlement::{
     EthereumUserOperationPreparer, EthereumUserOperationPreparerError, EvmCallData, EvmQuantity,
     EvmUserOperation, EvmUserOperationRequest,
 };
-use banking_ledger_domain::core::{EvmAddress, EvmChainId, EvmTokenOwnerAddress};
+use banking_ledger_domain::onchain::{EvmAddress, EvmChainId, EvmTokenOwnerAddress};
 use chrono::Utc;
 
 use super::{

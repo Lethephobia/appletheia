@@ -1,4 +1,5 @@
-use banking_ledger_domain::core::{CurrencyDecimals, EvmTokenContractAddress};
+use banking_ledger_domain::currency::CurrencyDecimals;
+use banking_ledger_domain::onchain::EvmTokenContractAddress;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EthereumTokenBindingSettlementValidationRequest {

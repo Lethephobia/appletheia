@@ -1,4 +1,4 @@
-use banking_ledger_domain::core::{ChainNetwork, TokenAddress, TokenOwnerAddress};
+use banking_ledger_domain::onchain::{ChainNetwork, TokenAddress, TokenOwnerAddress};
 
 use super::{
     DepositSettlementPreparation, DepositSettlementPreparationRequest, DepositSettlementPreparer,
@@ -104,12 +104,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use banking_ledger_domain::core::{
-        ChainNetwork, CurrencyAmount, CurrencyDecimals, EvmAddress, EvmChainId,
-        EvmTokenContractAddress, EvmTokenOwnerAddress, SolanaAccountAddress,
-        SolanaMintAccountAddress, SolanaTokenAccountOwnerAddress, TokenAddress, TokenOwnerAddress,
-    };
+    use banking_ledger_domain::currency::{CurrencyAmount, CurrencyDecimals};
     use banking_ledger_domain::deposit::DepositId;
+    use banking_ledger_domain::onchain::{
+        ChainNetwork, EvmAddress, EvmChainId, EvmTokenContractAddress, EvmTokenOwnerAddress,
+        SolanaAccountAddress, SolanaMintAccountAddress, SolanaTokenAccountOwnerAddress,
+        TokenAddress, TokenOwnerAddress,
+    };
 
     use crate::settlement::{
         DepositSettlementPreparation, Erc2612Permit, Erc2612PermitDeadline, Erc2612PermitSignature,

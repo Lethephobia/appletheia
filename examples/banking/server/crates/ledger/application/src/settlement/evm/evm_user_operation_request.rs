@@ -1,4 +1,4 @@
-use banking_ledger_domain::core::{EvmAddress, EvmChainId};
+use banking_ledger_domain::onchain::{EvmAddress, EvmChainId};
 use serde::{Deserialize, Serialize};
 
 use super::EvmUserOperation;

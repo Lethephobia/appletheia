@@ -1,6 +1,6 @@
 use appletheia::event_payload;
 
-use crate::core::CurrencyAmount;
+use crate::currency::CurrencyAmount;
 use crate::currency::CurrencyId;
 
 use super::{AccountDescription, AccountEventPayloadError, AccountName, AccountOwner};

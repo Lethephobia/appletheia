@@ -1,6 +1,6 @@
 use appletheia::event_payload;
 
-use crate::core::TokenOwnerAddress;
+use crate::onchain::TokenOwnerAddress;
 
 use super::{
     WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkEventPayloadError,
@@ -28,7 +28,7 @@ mod tests {
     use appletheia::domain::EventPayload;
     use banking_iam_domain::UserId;
 
-    use crate::core::{SolanaAccountAddress, SolanaTokenAccountOwnerAddress, TokenOwnerAddress};
+    use crate::onchain::{SolanaAccountAddress, SolanaTokenAccountOwnerAddress, TokenOwnerAddress};
 
     use super::{WalletBookmarkEventPayload, WalletBookmarkOwner};
 
