@@ -1,4 +1,4 @@
-FROM postgres:18-alpine
+FROM postgres:19-alpine
 
 ARG PGBIGM_VERSION=1.2-20250903
 ARG PG_CONFIG=/usr/local/bin/pg_config
